@@ -1,8 +1,8 @@
-# jobSearch — Comprehensive Live Job Dashboard
+# Job Search
 
 jobSearch queries documented public job feeds in parallel, ranks and
 deduplicates real openings, extracts requirements from posting descriptions,
-generates Markdown/JSON reports, and provides direct application links.
+generates styled PDF/JSON reports, and provides direct application links.
 
 Searches use close concept matching across the full description while retaining
 a robotics-domain gate when robotics is requested. Country is mandatory and
@@ -46,7 +46,7 @@ Each run provides:
 - Description excerpts and extracted requirements
 - An **Apply on original site** button
 - Major-platform search links
-- A comprehensive Markdown report
+- A styled, clickable PDF report
 - A JSON audit containing normalized job data
 
 Reports are written under `reports/`.

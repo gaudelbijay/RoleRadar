@@ -26,6 +26,7 @@ import config
 from agents.subagent import run_subagent
 from core import llm
 from core.jobs import build_report, search_jobs
+from core.pdf_report import build_pdf
 
 REPORTS_DIR = Path(__file__).resolve().parent.parent / "reports"
 REPORTS_DIR.mkdir(exist_ok=True)
@@ -151,6 +152,8 @@ class Coordinator:
         audit = REPORTS_DIR / f"audit-{stamp}.json"
         audit.write_text(json.dumps(
             {"query": query, **search_result}, indent=2), encoding="utf-8")
-        self.log(f"[coordinator] report saved -> {path}")
+        pdf = REPORTS_DIR / f"report-{stamp}.pdf"
+        build_pdf(query, search_result, pdf)
+        self.log(f"[coordinator] PDF report saved -> {pdf}")
         return {"report": report, "report_path": str(path),
-                "audit_path": str(audit), **search_result}
+                "pdf_path": str(pdf), "audit_path": str(audit), **search_result}

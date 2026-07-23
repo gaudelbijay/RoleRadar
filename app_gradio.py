@@ -31,6 +31,11 @@ def render_jobs(jobs, links, diagnostics=None, near_matches=None):
         if not apply_url.startswith(("https://", "http://")):
             continue
         reqs = "".join(f"<li>{html.escape(r)}</li>" for r in job["requirements"])
+        education_evidence = next(
+            (values for key, values in job.get("concept_evidence", {}).items()
+             if key.startswith("education:")),
+            [],
+        )
         cards.append(
             "<article style='border:1px solid #dbe4ff;border-radius:18px;padding:22px;"
             "margin:16px 0;background:linear-gradient(135deg,#ffffff,#f6f8ff);"
@@ -41,9 +46,13 @@ def render_jobs(jobs, links, diagnostics=None, near_matches=None):
             f"<p style='font-size:17px'><b>{html.escape(job['company'])}</b> · "
             f"📍 {html.escape(job['location'])}</p>"
             f"<p><b>💰 Salary:</b> {html.escape(job['salary_display'])}</p>"
+            f"<p><b>💼 Type:</b> {html.escape(job['job_type'] or 'Not disclosed')} · "
+            f"<b>🎓 Education:</b> "
+            f"{html.escape(', '.join(education_evidence) or 'Not stated')}</p>"
             f"<p><b>🎯 Relevance signals:</b> "
             f"{html.escape(', '.join(job['matched_keywords']) or 'close concept match')}</p>"
-            f"<p>{html.escape(job['description'][:700])}</p>"
+            f"<details><summary><b>Job description</b></summary>"
+            f"<p>{html.escape(job['description'][:1400])}</p></details>"
             f"<details><summary><b>Experience requested ({len(job['experience'])})</b>"
             f"</summary><ul>{''.join(f'<li>{html.escape(x)}</li>' for x in job['experience']) or '<li>Not explicitly stated</li>'}</ul></details>"
             f"<details><summary><b>All extracted requirements ({len(job['requirements'])})</b></summary>"
@@ -74,10 +83,10 @@ def run_research(query: str, country: str, city: str, max_age_days: int,
                  education: str):
     """Generator: streams live agent logs, then the final report."""
     if not query.strip():
-        yield "Please enter a job search.", "", ""
+        yield "Please enter a job search.", "", None
         return
     if not country.strip():
-        yield "Country is required. City is optional.", "", ""
+        yield "Country is required. City is optional.", "", None
         return
 
     log_q: queue.Queue = queue.Queue()
@@ -106,17 +115,16 @@ def run_research(query: str, country: str, city: str, max_age_days: int,
         if item is None:
             break
         lines.append(item)
-        yield "\n".join(lines), "", ""
+        yield "\n".join(lines), "", None
 
     result = result_holder.get("result", {})
     yield "\n".join(lines), render_jobs(
         result.get("jobs", []), result.get("search_links", []),
-        result.get("diagnostics"), result.get("near_matches")), result.get("report", "")
+        result.get("diagnostics"), result.get("near_matches")), result.get("pdf_path")
 
 
-with gr.Blocks(title="AI Job Search") as demo:
-    gr.Markdown("# 🔎 Comprehensive AI Job Search\nLive feeds, extracted requirements, "
-                "ranked openings, reports, and direct Apply links.")
+with gr.Blocks(title="Job Search") as demo:
+    gr.Markdown("# Job Search\nRecent matched jobs with salary, requirements, and Apply links.")
     query_box = gr.Textbox(label="What job are you looking for?", lines=2,
                            placeholder="e.g. AI robotics research scientist")
     with gr.Row():
@@ -137,11 +145,11 @@ with gr.Blocks(title="AI Job Search") as demo:
             label="Education level"
         )
     gr.Examples(EXAMPLES, inputs=query_box)
-    run_btn = gr.Button("Run research", variant="primary")
+    run_btn = gr.Button("Search Jobs", variant="primary")
     with gr.Row():
         log_box = gr.Textbox(label="Agent activity (live)", lines=14, interactive=False)
     jobs_box = gr.HTML(label="Live job results")
-    report_box = gr.Markdown(label="Comprehensive report")
+    report_box = gr.File(label="Download PDF report")
     run_btn.click(run_research,
                   inputs=[query_box, country_box, city_box, age_box, education_box],
                   outputs=[log_box, jobs_box, report_box])

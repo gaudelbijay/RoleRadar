@@ -5,9 +5,10 @@
 Each search writes:
 
 - `reports/report-YYYYMMDD-HHMMSS.md`
+- `reports/report-YYYYMMDD-HHMMSS.pdf`
 - `reports/audit-YYYYMMDD-HHMMSS.json`
 
-The report includes ranked openings, original application links, posting
+The dashboard download is the styled PDF report. It includes ranked openings, original application links, posting
 metadata, extracted requirements, description excerpts, major-platform search
 links, limitations, and source failures.
 

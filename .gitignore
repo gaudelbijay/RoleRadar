@@ -207,6 +207,7 @@ tempCodeRunnerFile.py
 .DS_Store
 reports/*.md
 reports/*.json
+reports/*.pdf
 
 # Ruff stuff:
 .ruff_cache/

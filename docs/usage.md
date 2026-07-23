@@ -47,9 +47,9 @@ platform's own search experience.
 
 ## Reports
 
-The complete report appears below the cards and is saved under `reports/`.
-It includes every ranked job, application link, requirements, description
-excerpt, source coverage, platform searches, and feed errors.
+Use **Download PDF Report** after a search. The styled PDF includes each matched
+job's salary, education and experience evidence, requirements, description,
+source, posting date, and clickable application link.
 
 ## Command line
 

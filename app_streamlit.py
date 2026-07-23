@@ -9,6 +9,7 @@ Run:  pip install streamlit
 import queue
 import threading
 import time
+from pathlib import Path
 
 import streamlit as st
 
@@ -16,13 +17,10 @@ import config
 from agents.coordinator import Coordinator
 from core.jobs import COUNTRIES, EDUCATION_LEVELS
 
-st.set_page_config(page_title="AI Job Search", page_icon="🔎", layout="wide")
+st.set_page_config(page_title="Job Search", page_icon="🔎", layout="wide")
 
-st.title("🔎 Comprehensive AI Job Search")
-st.caption("Live feeds → ranked openings → extracted requirements → direct applications")
-
-mode = "🟢 LIVE PUBLIC JOB FEEDS"
-st.info(mode)
+st.title("Job Search")
+st.caption("Recent matched jobs with salary, requirements, and Apply links.")
 
 query = st.text_area(
     "What job are you looking for?",
@@ -51,10 +49,10 @@ education = st.selectbox(
 
 col1, col2 = st.columns([1, 3])
 with col1:
-    run = st.button("Run research", type="primary", use_container_width=True)
+    run = st.button("Search Jobs", type="primary", use_container_width=True)
 
 if run and query.strip() and country.strip():
-    log_area = st.expander("Agent activity (live)", expanded=True)
+    log_area = st.expander("Search activity", expanded=False)
     log_placeholder = log_area.empty()
     lines: list[str] = []
     log_queue: queue.Queue = queue.Queue()
@@ -141,7 +139,17 @@ if run and query.strip() and country.strip():
                     f"{', '.join(job['matched_keywords']) or 'close concept match'}"
                 )
                 st.markdown(f"#### 💰 {job['salary_display']}")
-                st.write(job["description"][:900] or "No description supplied.")
+                details = st.columns(2)
+                details[0].markdown(
+                    f"**Employment type:** {job['job_type'] or 'Not disclosed'}"
+                )
+                education_evidence = job["concept_evidence"].get(
+                    f"education: {result['education']}", []
+                )
+                details[1].markdown(
+                    f"**Education evidence:** "
+                    f"{', '.join(education_evidence) or 'Not found'}"
+                )
                 with st.expander("Experience requested"):
                     for item in job["experience"]:
                         st.markdown(f"- {item}")
@@ -152,6 +160,8 @@ if run and query.strip() and country.strip():
                         st.markdown(f"- {requirement}")
                     if not job["requirements"]:
                         st.write("No clear requirement statements were extracted.")
+                with st.expander("Job description"):
+                    st.write(job["description"][:1800] or "No description supplied.")
                 apply_url = str(job.get("apply_url") or "")
                 if apply_url.startswith(("https://", "http://")):
                     st.link_button(
@@ -159,11 +169,14 @@ if run and query.strip() and country.strip():
                     )
                 else:
                     st.warning("This source did not provide a valid application URL.")
-        st.subheader("Comprehensive report")
-        st.markdown("---")
-        st.markdown(result["report"])
-        st.download_button("Download report (.md)", result["report"],
-                           file_name="research_report.md")
+        pdf_path = Path(result["pdf_path"])
+        st.download_button(
+            "Download PDF Report",
+            data=pdf_path.read_bytes(),
+            file_name="job_search_report.pdf",
+            mime="application/pdf",
+            type="primary",
+        )
 elif run and not query.strip():
     st.warning("Please enter a job search query.")
 elif run:
