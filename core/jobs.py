@@ -61,10 +61,17 @@ def _json(url: str):
 
 
 def clean(value) -> str:
+    if value is None or str(value).strip().lower() in {"nan", "nat", "none", "<na>"}:
+        return ""
     text = str(value or "")
     text = re.sub(r"(?i)<br\s*/?>|</p>|</li>|</h[1-6]>", "\n", text)
     text = html.unescape(re.sub(r"<[^>]+>", " ", text))
     return re.sub(r"\n\s*\n+", "\n\n", re.sub(r"[ \t]+", " ", text)).strip()
+
+
+def valid_url(value) -> str:
+    candidate = clean(value)
+    return candidate if candidate.startswith(("https://", "http://")) else ""
 
 
 def _job(source, source_id, title, company, location, description, url,
@@ -74,7 +81,7 @@ def _job(source, source_id, title, company, location, description, url,
         "title": clean(title) or "Untitled role",
         "company": clean(company) or "Company not specified",
         "location": clean(location) or "Not specified",
-        "description": clean(description), "apply_url": url,
+        "description": clean(description), "apply_url": valid_url(url),
         "published": str(published or ""), "salary": clean(salary),
         "job_type": clean(job_type).replace("_", " "),
         "tags": [clean(tag) for tag in (tags or []) if tag],
@@ -131,7 +138,7 @@ def top_job_sites(query, country, city, max_age_days):
         ) from exc
     location = ", ".join(part for part in [city.strip(), country.strip()] if part)
     frame = scrape_jobs(
-        site_name=["linkedin", "indeed", "google", "glassdoor"],
+        site_name=["linkedin", "indeed", "google"],
         search_term=query,
         google_search_term=f"{query} jobs in {location}",
         location=location,
@@ -143,7 +150,10 @@ def top_job_sites(query, country, city, max_age_days):
     jobs = []
     for _, row in frame.iterrows():
         item = row.to_dict()
-        apply_url = item.get("job_url_direct") or item.get("job_url")
+        apply_url = (
+            valid_url(item.get("job_url_direct"))
+            or valid_url(item.get("job_url"))
+        )
         if not apply_url:
             continue
         salary = " ".join(
@@ -383,7 +393,7 @@ def search_jobs(query, log=print, max_results=30, country="", city="",
     max_age_days = int(max_age_days)
     sources = [("Remotive", remotive), ("Jobicy", jobicy),
                ("Arbeitnow", arbeitnow), ("Remote OK", remoteok),
-               ("LinkedIn / Indeed / Google / Glassdoor",
+               ("LinkedIn / Indeed / Google",
                 lambda q: top_job_sites(q, country, city, max_age_days))]
     jobs, errors = [], []
     with ThreadPoolExecutor(max_workers=len(sources)) as pool:

@@ -147,7 +147,13 @@ if run and query.strip() and country.strip():
                         st.markdown(f"- {requirement}")
                     if not job["requirements"]:
                         st.write("No clear requirement statements were extracted.")
-                st.link_button("Apply on original site ↗", job["apply_url"], type="primary")
+                apply_url = str(job.get("apply_url") or "")
+                if apply_url.startswith(("https://", "http://")):
+                    st.link_button(
+                        "Apply on original site ↗", apply_url, type="primary"
+                    )
+                else:
+                    st.warning("This source did not provide a valid application URL.")
         st.subheader("Comprehensive report")
         st.markdown("---")
         st.markdown(result["report"])

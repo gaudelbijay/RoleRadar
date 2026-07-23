@@ -17,6 +17,9 @@ robotics concepts in descriptions. Users control maximum age; undated/stale
 listings are removed and remaining jobs are shown newest-first.
 
 LinkedIn, Indeed, Glassdoor, and Google Jobs are included as targeted searches.
+LinkedIn, Indeed, and Google listings are also retrieved through the major-sites
+source agent. Glassdoor remains a targeted search link because its scraper
+location parsing is unreliable.
 LinkedIn does not expose an unrestricted public job-search API, so the project
 does not scrape authenticated pages or automate applications.
 

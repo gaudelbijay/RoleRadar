@@ -25,7 +25,7 @@ python cli.py --country "United States" --city Boston "robotics PhD"
 ## Live sources
 
 Independent source agents query Remotive, Jobicy, Arbeitnow, Remote OK, plus
-public LinkedIn, Indeed, Google Jobs, and Glassdoor listings through JobSpy.
+public LinkedIn, Indeed, and Google Jobs listings through JobSpy.
 Results preserve the source, company, location, description,
 publication information, salary when supplied, extracted requirements, and the
 original application URL.

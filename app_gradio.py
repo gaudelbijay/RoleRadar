@@ -27,6 +27,9 @@ def render_jobs(jobs, links, diagnostics=None, near_matches=None):
     near_matches = near_matches or []
     cards = []
     for job in jobs:
+        apply_url = str(job.get("apply_url") or "")
+        if not apply_url.startswith(("https://", "http://")):
+            continue
         reqs = "".join(f"<li>{html.escape(r)}</li>" for r in job["requirements"])
         cards.append(
             "<article style='border:1px solid #dbe4ff;border-radius:18px;padding:22px;"
@@ -45,7 +48,7 @@ def render_jobs(jobs, links, diagnostics=None, near_matches=None):
             f"</summary><ul>{''.join(f'<li>{html.escape(x)}</li>' for x in job['experience']) or '<li>Not explicitly stated</li>'}</ul></details>"
             f"<details><summary><b>All extracted requirements ({len(job['requirements'])})</b></summary>"
             f"<ul>{reqs or '<li>None clearly extracted</li>'}</ul></details><br>"
-            f"<a href='{html.escape(job['apply_url'], quote=True)}' target='_blank' "
+            f"<a href='{html.escape(apply_url, quote=True)}' target='_blank' "
             "style='background:#1769e0;color:white;padding:9px 15px;border-radius:8px;"
             "text-decoration:none'>Apply on original site ↗</a></article>")
     searches = " · ".join(
