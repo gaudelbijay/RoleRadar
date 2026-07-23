@@ -8,8 +8,9 @@ Usage:
 import argparse
 
 from agents.coordinator import Coordinator
+from core.jobs import EDUCATION_LEVELS
 
-DEFAULT_QUERY = "AI PhD robotics research scientist"
+DEFAULT_QUERY = "AI robotics research scientist"
 
 
 def main() -> None:
@@ -19,12 +20,14 @@ def main() -> None:
     parser.add_argument("--city", default="", help="Optional city filter")
     parser.add_argument("--max-age", type=int, default=10, choices=range(1, 31),
                         metavar="DAYS", help="Maximum posting age (1-30)")
+    parser.add_argument("--education", choices=EDUCATION_LEVELS, default="PhD",
+                        help="Required education evidence (default: PhD)")
     args = parser.parse_args()
     query = " ".join(args.query) or DEFAULT_QUERY
     print(f"Query: {query} | Country: {args.country} | City: {args.city or 'Any'}")
     print("=" * 70)
     result = Coordinator(log=print).run(
-        query, args.country, args.city, args.max_age
+        query, args.country, args.city, args.max_age, args.education
     )
     print("=" * 70)
     print(result["report"])

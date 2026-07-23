@@ -14,11 +14,11 @@ import gradio as gr
 
 import config
 from agents.coordinator import Coordinator
-from core.jobs import COUNTRIES
+from core.jobs import COUNTRIES, EDUCATION_LEVELS
 
 EXAMPLES = [
-    "AI PhD robotics research scientist",
-    "robot learning reinforcement learning PhD",
+    "AI robotics research scientist",
+    "robot learning reinforcement learning",
     "computer vision robotics research engineer",
 ]
 
@@ -70,7 +70,8 @@ def render_jobs(jobs, links, diagnostics=None, near_matches=None):
     return f"<p>{searches}</p>{audit}{''.join(cards) or '<p>No verified feed matches.</p>'}"
 
 
-def run_research(query: str, country: str, city: str, max_age_days: int):
+def run_research(query: str, country: str, city: str, max_age_days: int,
+                 education: str):
     """Generator: streams live agent logs, then the final report."""
     if not query.strip():
         yield "Please enter a job search.", "", ""
@@ -88,7 +89,7 @@ def run_research(query: str, country: str, city: str, max_age_days: int):
     def worker():
         try:
             result_holder["result"] = Coordinator(log=log).run(
-                query, country, city, int(max_age_days)
+                query, country, city, int(max_age_days), education
             )
         except Exception as exc:
             log(f"ERROR: {exc}")
@@ -117,7 +118,7 @@ with gr.Blocks(title="AI Job Search") as demo:
     gr.Markdown("# 🔎 Comprehensive AI Job Search\nLive feeds, extracted requirements, "
                 "ranked openings, reports, and direct Apply links.")
     query_box = gr.Textbox(label="What job are you looking for?", lines=2,
-                           placeholder="e.g. AI PhD robotics research scientist")
+                           placeholder="e.g. AI robotics research scientist")
     with gr.Row():
         country_box = gr.Dropdown(
             choices=COUNTRIES, value="United States",
@@ -131,6 +132,10 @@ with gr.Blocks(title="AI Job Search") as demo:
             minimum=1, maximum=30, value=10, step=1,
             label="Maximum posting age (days)"
         )
+        education_box = gr.Dropdown(
+            choices=EDUCATION_LEVELS, value="PhD",
+            label="Education level"
+        )
     gr.Examples(EXAMPLES, inputs=query_box)
     run_btn = gr.Button("Run research", variant="primary")
     with gr.Row():
@@ -138,7 +143,7 @@ with gr.Blocks(title="AI Job Search") as demo:
     jobs_box = gr.HTML(label="Live job results")
     report_box = gr.Markdown(label="Comprehensive report")
     run_btn.click(run_research,
-                  inputs=[query_box, country_box, city_box, age_box],
+                  inputs=[query_box, country_box, city_box, age_box, education_box],
                   outputs=[log_box, jobs_box, report_box])
 
 if __name__ == "__main__":

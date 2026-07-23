@@ -132,7 +132,7 @@ class Coordinator:
 
     # ------------------------------------------------------------------ #
     def run(self, query: str, country: str = "United States", city: str = "",
-            max_age_days: int = 10) -> dict:
+            max_age_days: int = 10, education: str = "PhD") -> dict:
         """Search live public job feeds and produce ranked dashboard results."""
         if not country.strip():
             raise ValueError("Country is required. City is optional.")
@@ -140,7 +140,7 @@ class Coordinator:
         self.log("[coordinator] launching live job-source agents...")
         search_result = search_jobs(
             query, log=self.log, country=country, city=city,
-            max_age_days=max_age_days
+            max_age_days=max_age_days, education=education
         )
         self.log(f"[coordinator] ranking {search_result['fetched_count']} fetched listings...")
         report = build_report(query, search_result)

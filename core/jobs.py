@@ -42,6 +42,19 @@ COUNTRIES = [
     "Belgium", "Czech Republic", "Japan", "South Korea", "Singapore",
     "New Zealand", "Brazil", "Mexico", "United Arab Emirates", "Israel",
 ]
+EDUCATION_LEVELS = ["High School", "Bachelor's", "Master's", "PhD"]
+EDUCATION_TERMS = {
+    "High School": {"high school", "secondary school", "diploma", "ged"},
+    "Bachelor's": {
+        "bachelor", "bachelors", "bachelor's", "undergraduate degree",
+        "college degree",
+    },
+    "Master's": {
+        "master", "masters", "master's", "graduate degree", "phd",
+        "doctorate", "doctoral",
+    },
+    "PhD": {"phd", "doctorate", "doctoral", "postdoctoral", "postdoc"},
+}
 COUNTRY_ALIASES = {
     "united states": {"united states", "usa", "u.s.", "us"},
     "united kingdom": {"united kingdom", "uk", "u.k.", "great britain"},
@@ -259,13 +272,16 @@ def location_matches(location, country=""):
 
 
 def rank(jobs, query, limit=30, country="", city="", max_age_days=MAX_AGE_DAYS,
-         include_diagnostics=False):
+         education="PhD", include_diagnostics=False):
+    if education not in EDUCATION_LEVELS:
+        raise ValueError(f"Education must be one of: {', '.join(EDUCATION_LEVELS)}")
     words = {w for w in re.findall(r"[a-z0-9+#.]{2,}", query.lower()) if w not in STOP}
     query_text = query.lower()
     requested_concepts = {
         name: terms for name, terms in CONCEPTS.items()
         if any(re.search(rf"\b{re.escape(term)}\b", query_text) for term in terms)
     }
+    requested_concepts[f"education: {education}"] = EDUCATION_TERMS[education]
     unique = {}
     for job in jobs:
         unique.setdefault((job["company"].lower(), job["title"].lower()), job)
@@ -385,9 +401,11 @@ def rank(jobs, query, limit=30, country="", city="", max_age_days=MAX_AGE_DAYS,
 
 
 def search_jobs(query, log=print, max_results=30, country="", city="",
-                max_age_days=MAX_AGE_DAYS):
+                max_age_days=MAX_AGE_DAYS, education="PhD"):
     if not country.strip():
         raise ValueError("Country is required. City is optional.")
+    if education not in EDUCATION_LEVELS:
+        raise ValueError(f"Education must be one of: {', '.join(EDUCATION_LEVELS)}")
     if not 1 <= int(max_age_days) <= 90:
         raise ValueError("Maximum posting age must be between 1 and 90 days.")
     max_age_days = int(max_age_days)
@@ -396,11 +414,12 @@ def search_jobs(query, log=print, max_results=30, country="", city="",
                ("LinkedIn / Indeed / Google",
                 lambda q: top_job_sites(q, country, city, max_age_days))]
     jobs, errors = [], []
+    source_query = f"{query} {education}".strip()
     with ThreadPoolExecutor(max_workers=len(sources)) as pool:
         futures = {}
         for name, fetcher in sources:
             log(f"[source agent: {name}] searching live listings...")
-            futures[pool.submit(fetcher, query)] = name
+            futures[pool.submit(fetcher, source_query)] = name
         for future in as_completed(futures):
             name = futures[future]
             try:
@@ -412,13 +431,14 @@ def search_jobs(query, log=print, max_results=30, country="", city="",
                 log(f"[source agent: {name}] failed: {exc}")
     location = ", ".join(part for part in [city.strip(), country.strip()] if part)
     ranked, diagnostics, near_matches = rank(
-        jobs, query, max_results, country, city, max_age_days,
+        jobs, query, max_results, country, city, max_age_days, education,
         include_diagnostics=True
     )
     return {"jobs": ranked, "diagnostics": diagnostics,
             "near_matches": near_matches, "source_errors": errors,
-            "search_links": major_search_links(query, location),
+            "search_links": major_search_links(source_query, location),
             "country": country.strip(), "city": city.strip(),
+            "education": education,
             "max_age_days": max_age_days,
             "fetched_count": len(jobs),
             "generated_at": datetime.now(timezone.utc).isoformat()}
@@ -432,6 +452,7 @@ def build_report(query, result):
         f"> **Search mission:** {query}  ",
         f"> **Country:** {result.get('country') or 'Any'} · "
         f"**City:** {result.get('city') or 'Any'}  ",
+        f"> **Education:** {result.get('education', 'PhD')}  ",
         f"> **Generated:** {result['generated_at']}  ",
         f"> **Policy:** close concept match · robotics-domain gate · "
         f"≤ {result['max_age_days']} days old · newest first",
@@ -525,6 +546,8 @@ def build_report(query, result):
         "perception, computer vision, deep learning, or reinforcement learning.",
         "- PhD/doctoral queries require explicit advanced-degree evidence in the "
         "posting rather than inferring education from the job title.",
+        f"- The selected education filter is **{result.get('education', 'PhD')}** "
+        "and must be supported by the posting text.",
         f"- Undated listings and listings older than "
         f"{result['max_age_days']} days are excluded.",
         "- Country is mandatory. City is optional and used only as a preference; "
@@ -537,3 +560,5 @@ def build_report(query, result):
     if result["source_errors"]:
         lines += ["", "## Source errors", ""] + [f"- {e}" for e in result["source_errors"]]
     return "\n".join(lines)
+    if education not in EDUCATION_LEVELS:
+        raise ValueError(f"Education must be one of: {', '.join(EDUCATION_LEVELS)}")

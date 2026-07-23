@@ -16,6 +16,9 @@ as a preference rather than an exclusion. Matching recognizes related AI and
 robotics concepts in descriptions. Users control maximum age; undated/stale
 listings are removed and remaining jobs are shown newest-first.
 
+An education dropdown provides High School, Bachelor's, Master's, and PhD
+options. PhD is selected by default and checked against the posting text.
+
 LinkedIn, Indeed, Glassdoor, and Google Jobs are included as targeted searches.
 LinkedIn, Indeed, and Google listings are also retrieved through the major-sites
 source agent. Glassdoor remains a targeted search link because its scraper

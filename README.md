@@ -9,6 +9,9 @@ a robotics-domain gate when robotics is requested. Country is mandatory and
 defaults to United States; city is an optional preference. Users choose the
 maximum posting age, and results sort newest-first.
 
+Education is selected separately from the keywords. Available levels are High
+School, Bachelor's, Master's, and PhD; PhD is selected by default.
+
 ## Run
 
 ```bash
@@ -19,7 +22,7 @@ maximum posting age, and results sort newest-first.
 Or run the CLI:
 
 ```bash
-python cli.py --country "United States" --city Boston "robotics PhD"
+python cli.py --country "United States" --city Boston --education PhD "robotics"
 ```
 
 ## Live sources

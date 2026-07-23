@@ -17,8 +17,12 @@ For Streamlit:
 Enter a focused query such as:
 
 ```text
-AI PhD robotics research scientist
+AI robotics research scientist
 ```
+
+Select education independently: High School, Bachelor's, Master's, or PhD.
+PhD is the default. A listing must contain evidence supporting the selected
+education level; the dashboard does not infer it from seniority alone.
 
 Useful alternatives include `robot learning PhD`, `robotics perception
 engineer`, and `computer vision robotics`.
@@ -50,5 +54,6 @@ excerpt, source coverage, platform searches, and feed errors.
 ## Command line
 
 ```bash
-python cli.py --country "United States" --max-age 10 "AI PhD robotics"
+python cli.py --country "United States" --max-age 10 \
+  --education PhD "AI robotics"
 ```

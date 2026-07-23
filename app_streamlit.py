@@ -14,7 +14,7 @@ import streamlit as st
 
 import config
 from agents.coordinator import Coordinator
-from core.jobs import COUNTRIES
+from core.jobs import COUNTRIES, EDUCATION_LEVELS
 
 st.set_page_config(page_title="AI Job Search", page_icon="🔎", layout="wide")
 
@@ -26,7 +26,7 @@ st.info(mode)
 
 query = st.text_area(
     "What job are you looking for?",
-    placeholder="e.g. AI PhD robotics research scientist",
+    placeholder="e.g. AI robotics research scientist",
     height=100,
 )
 location_col1, location_col2 = st.columns(2)
@@ -43,6 +43,10 @@ with location_col2:
 max_age_days = st.slider(
     "Maximum posting age", min_value=1, max_value=30, value=10,
     help="Undated jobs and jobs older than this number of days are excluded."
+)
+education = st.selectbox(
+    "Education level", EDUCATION_LEVELS,
+    index=EDUCATION_LEVELS.index("PhD")
 )
 
 col1, col2 = st.columns([1, 3])
@@ -64,7 +68,7 @@ if run and query.strip() and country.strip():
     def worker():
         try:
             result_holder["result"] = Coordinator(log=log).run(
-                query, country, city, max_age_days
+                query, country, city, max_age_days, education
             )
         except Exception as exc:
             result_holder["error"] = exc
@@ -92,12 +96,13 @@ if run and query.strip() and country.strip():
         result = result_holder["result"]
         st.success(f"Found {len(result['jobs'])} ranked jobs from "
                    f"{result['fetched_count']} fetched listings.")
-        metric1, metric2, metric3 = st.columns(3)
+        metric1, metric2, metric3, metric4 = st.columns(4)
         metric1.metric("Verified matches", len(result["jobs"]))
         metric2.metric("Maximum age", f"{result['max_age_days']} days")
         metric3.metric("Location", ", ".join(
             x for x in [result.get("city"), result.get("country")] if x
         ) or "Any")
+        metric4.metric("Education", result["education"])
         if not result["jobs"]:
             st.error(
                 "No verified listing from the connected feeds passed the search. "
