@@ -2,58 +2,70 @@
 
 [Documentation index](document.md)
 
-## Start the dashboard
+## Choose an interface
+
+Launch Gradio explicitly:
 
 ```bash
-./run.sh
+./run.sh gradio
 ```
 
-For Streamlit:
+Launch Streamlit explicitly:
 
 ```bash
 ./run.sh streamlit
 ```
 
-Enter a focused query such as:
+Running `./run.sh` without a mode displays help instead of silently choosing an
+interface.
 
-```text
-AI robotics research scientist
-```
+### Gradio
 
-Select education independently: High School, Bachelor's, Master's, or PhD.
-PhD is the default. A listing must contain evidence supporting the selected
-education level; the dashboard does not infer it from seniority alone.
+Gradio provides the visual card layout. Enter the search controls at the top.
+**Agent activity** is collapsed by default; select its heading to show or hide
+live source logs. The application profile, CV upload, job selector, editable
+cover letter, suggested answers, and application review queue are on the same
+page.
 
-Useful alternatives include `robot learning PhD`, `robotics perception
-engineer`, and `computer vision robotics`.
+### Streamlit
 
-Country is selected from a dropdown and defaults to United States. City is an
-optional preference and never excludes otherwise relevant jobs in that country.
-Use the posting-age control to choose how recent results must be.
+Streamlit places CV upload and applicant details in the sidebar. Search results
+remain available while applications are prepared. A job card changes to
+**Prepared ✓** after it is added to the review queue.
 
-## Read and apply
+## Search controls
 
-Matching uses closely related concepts across the title and full description,
-not literal word-for-word filtering. Robotics searches still require robotics
-domain evidence. Undated or older-than-your-selected-age jobs are removed and
-newest listings appear first. Open a card to inspect salary evidence,
-experience evidence, and extracted requirements. Select
-**Apply on original site** to open the authoritative job-board or employer
-page. The dashboard does not submit applications or collect credentials.
+- Enter a focused role or domain, such as `AI robotics research scientist`.
+- Select a country. Country is mandatory and defaults to United States.
+- Optionally enter a city. It improves ranking but does not exclude other cities
+  in the selected country.
+- Choose a maximum posting age from 1–30 days.
+- Choose High School, Bachelor's, Master's, or PhD. PhD is the default.
 
-Use the LinkedIn, Indeed, Glassdoor, and Google Jobs buttons when the public
-feeds have limited coverage. Those buttons preserve your query and open the
-platform's own search experience.
+Matching considers related concepts across the full posting. Robotics searches
+still require meaningful robotics-domain evidence. Undated and stale jobs are
+removed, and remaining results are ordered newest-first.
+
+## Prepare and apply
+
+Upload a PDF, DOCX, TXT, or Markdown CV and complete the required name and email
+fields. Prepare a selected job or all matched jobs. Review the generated cover
+letter and profile answers before opening the original application page.
+
+The employer site remains authoritative. Login, consent, CAPTCHA, assessments,
+work-authorization wording, and posting-specific questions must be checked by
+the applicant. The app does not collect platform credentials or report an
+application as submitted.
 
 ## Reports
 
-Use **Download PDF Report** after a search. The styled PDF includes each matched
-job's salary, education and experience evidence, requirements, description,
-source, posting date, and clickable application link.
+Download the styled PDF after a search. It contains matched jobs, dates, source,
+salary when available, extracted requirements, descriptions, and clickable
+application links. Application-profile data and CV contents are excluded.
 
 ## Command line
 
 ```bash
-python cli.py --country "United States" --max-age 10 \
+./run.sh cli --country "United States" --max-age 10 \
   --education PhD "AI robotics"
 ```

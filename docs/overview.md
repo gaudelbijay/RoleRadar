@@ -1,31 +1,34 @@
-# Project Overview
+# Project overview
 
 [Documentation index](document.md)
 
-jobSearch is a live job aggregation and analysis dashboard. Independent source
-agents query public feeds and major job sites concurrently. The coordinator
-normalizes, deduplicates, and ranks listings against the user's query.
+Job Search is a live job aggregation, ranking, reporting, and application-
+preparation dashboard. Users can explicitly launch either Gradio or Streamlit:
 
-For every ranked opening the application presents the title, company,
-location, source, available salary/type/date fields, posting description,
-requirements extracted directly from that description, and an external Apply
-button.
+```bash
+./run.sh gradio
+./run.sh streamlit
+```
+
+Parallel source agents query Remotive, Jobicy, Arbeitnow, Remote OK, LinkedIn,
+Indeed, and Google. Results are normalized and deduplicated before ranking.
+Glassdoor is provided as a targeted search link because its scraper location
+handling is unreliable.
+
+Every ranked card shows the title, company, location, source, posting date,
+available salary and employment type, matching signals, education evidence,
+experience, requirements, description, and original application link.
 
 Country is mandatory and defaults to United States. City is optional and used
-as a preference rather than an exclusion. Matching recognizes related AI and
-robotics concepts in descriptions. Users control maximum age; undated/stale
-listings are removed and remaining jobs are shown newest-first.
+as a preference. Users choose a 1–30 day posting-age limit and an education
+level from High School, Bachelor's, Master's, or PhD. Matching recognizes
+related AI and robotics concepts while keeping meaningful domain evidence.
+Undated and stale results are rejected; accepted jobs are newest-first.
 
-An education dropdown provides High School, Bachelor's, Master's, and PhD
-options. PhD is selected by default and checked against the posting text.
+Both dashboards accept PDF, DOCX, TXT, and Markdown CVs and prepare application
+drafts for review. They do not automate platform login, CAPTCHA, assessments,
+unknown screening questions, or final submission.
 
-LinkedIn, Indeed, Glassdoor, and Google Jobs are included as targeted searches.
-LinkedIn, Indeed, and Google listings are also retrieved through the major-sites
-source agent. Glassdoor remains a targeted search link because its scraper
-location parsing is unreliable.
-LinkedIn does not expose an unrestricted public job-search API, so the project
-does not scrape authenticated pages or automate applications.
-
-Reports are saved as Markdown, while a JSON audit preserves the normalized
-results and source errors. Current public feeds focus heavily on remote and
-European roles, so major-platform links are important for broader local search.
+Each search creates local Markdown, PDF, and JSON artifacts. The PDF is the
+user-facing download; the JSON audit preserves normalized evidence and source
+errors. Applicant profile and CV data are excluded from every report.

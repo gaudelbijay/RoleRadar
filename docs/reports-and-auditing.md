@@ -1,17 +1,22 @@
-# Reports and Auditing
+# Reports and auditing
 
 [Documentation index](document.md)
 
-Each search writes:
+Each successful search writes timestamped local artifacts:
 
 - `reports/report-YYYYMMDD-HHMMSS.md`
 - `reports/report-YYYYMMDD-HHMMSS.pdf`
 - `reports/audit-YYYYMMDD-HHMMSS.json`
 
-The dashboard download is the styled PDF report. It includes ranked openings, original application links, posting
-metadata, extracted requirements, description excerpts, major-platform search
-links, limitations, and source failures.
+Both dashboards offer the styled PDF as the user-facing download. It contains
+ranked openings, source metadata, posting dates, available salary, education
+and experience evidence, extracted requirements, description excerpts,
+platform searches, and clickable original application links.
 
-The JSON audit contains the query, generation time, fetched count, normalized
-ranked jobs, source errors, and platform links. Generated files should remain
-local and should not be committed.
+The JSON audit preserves query controls, generation time, fetched count,
+normalized ranked jobs, source errors, gate diagnostics, and platform links.
+The Markdown file is the text report used to build related output.
+
+CV contents, applicant contact data, generated cover letters, and reusable
+application answers are not written into these reports. Generated report files
+are ignored by Git and should remain local unless deliberately shared.

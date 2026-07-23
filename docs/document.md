@@ -1,21 +1,25 @@
-# jobSearch Documentation
+# Job Search documentation
 
-jobSearch retrieves real openings from public feeds, extracts requirements,
-ranks results, and links users to original application pages.
+Job Search is a live job discovery and review-first application-preparation
+tool with separate Gradio, Streamlit, and command-line interfaces.
+
+## Launch immediately
+
+```bash
+./run.sh gradio
+./run.sh streamlit
+```
+
+Use `./run.sh help` to display every launcher mode.
 
 ## Documentation map
 
 - [Project overview](overview.md)
-- [Architecture](architecture.md)
 - [Installation](installation.md)
-- [Usage](usage.md)
+- [Usage: Gradio, Streamlit, and CLI](usage.md)
+- [Application assistant](application-assistant.md)
+- [Architecture](architecture.md)
 - [Configuration](configuration.md)
 - [Reports and auditing](reports-and-auditing.md)
 - [Development guide](development.md)
 - [Technical design](../PROJECT.md)
-
-## Quick start
-
-```bash
-./run.sh
-```

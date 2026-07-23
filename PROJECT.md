@@ -1,44 +1,62 @@
-# jobSearch Technical Design
+# Job Search technical design
 
-jobSearch is a live job aggregation dashboard. A coordinator launches one
-independent source agent for each documented public feed: Remotive, Jobicy,
-Arbeitnow, and Remote OK. Results are normalized, deduplicated by company and
-title, filtered for meaningful query coverage, and ranked.
+Job Search combines live job aggregation with review-first application
+preparation. The same search and preparation modules serve two explicitly
+launchable dashboards:
 
-Each normalized job contains its title, company, location, source, description,
-date, type, salary when supplied, tags, extracted requirements, relevance data,
-and original application URL. Requirement extraction is deterministic and uses
-the posting text; it does not invent qualifications.
-
-Gradio and Streamlit dashboards display cards, expandable requirements,
-original-site Apply buttons, and targeted LinkedIn, Indeed, Glassdoor, and
-Google Jobs searches. The project does not scrape authenticated pages or
-submit applications. Reports and full JSON audits are saved under `reports/`.
-
-## Architecture
-
-```text
-query
-  └─ coordinator
-      ├─ Remotive source agent
-      ├─ Jobicy source agent
-      ├─ Arbeitnow source agent
-      └─ Remote OK source agent
-           ↓
-      normalize → deduplicate → relevance filter → rank
-           ↓
-      dashboard cards + Apply links + Markdown report + JSON audit
+```bash
+./run.sh gradio
+./run.sh streamlit
 ```
 
-LinkedIn's official job APIs are gated partner products and do not provide an
-unrestricted public search API. jobSearch therefore creates a targeted
-LinkedIn search URL instead of using unsupported scraping.
+## Data flow
 
-## Roadmap
+```text
+query + country + optional city + age + education
+  └─ coordinator
+      ├─ Remotive
+      ├─ Jobicy
+      ├─ Arbeitnow
+      ├─ Remote OK
+      └─ JobSpy: LinkedIn + Indeed + Google
+           ↓
+      normalize → deduplicate → evidence gates → newest-first rank
+           ↓
+      Gradio cards or Streamlit cards
+           ├─ original application links
+           ├─ Markdown + JSON audit + styled PDF
+           └─ optional CV/profile preparation
+                    ↓
+              editable draft → applicant review → original employer form
+```
 
-- Employer ATS integrations for Greenhouse and Lever
-- Location, remote, salary, experience, and recency filters
-- User profiles and resume-to-job matching
-- Saved jobs and application tracking
+A normalized job contains title, company, location, source, description,
+publication date, type, salary evidence, tags, extracted requirements,
+experience, relevance evidence, and an original application URL.
+
+`core/applications.py` reads PDF, DOCX, TXT, and Markdown CVs and creates drafts
+from CV/posting overlap and applicant-provided profile values. It does not
+invent qualifications or submit forms. Gradio and Streamlit keep application
+state separate from generated search reports.
+
+LinkedIn, Indeed, Glassdoor, and Google targeted search URLs supplement feed
+coverage. Authenticated pages are not scraped and platform restrictions are not
+bypassed.
+
+## Current limitations
+
+- Public-source coverage and fields vary by site and time.
+- Salary and experience remain undisclosed when the source omits them.
+- Scanned image-only PDFs require OCR before upload.
+- Employer login, consent, CAPTCHA, assessments, and custom screening questions
+  require applicant review on the original site.
+- Application tracking does not claim submission confirmation.
+
+## Next improvements
+
+- Saved-job and reviewed/submitted status tracking
+- Optional local encrypted applicant profiles
+- More normalizer and UI regression tests
 - Feed caching and scheduled refresh
-- Tests for every normalizer and ranking rule
+- Employer-authorized ATS integrations where credentials and custom questions
+  are legitimately available
