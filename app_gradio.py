@@ -8,23 +8,72 @@ Run:  pip install gradio
 
 import queue
 import threading
+import html
 
 import gradio as gr
 
 import config
 from agents.coordinator import Coordinator
+from core.jobs import COUNTRIES
 
 EXAMPLES = [
-    "Research silicon/semiconductor companies: 5-year performance, key collaborations, risks, and how they compare",
-    "State of solid-state battery research: leading labs, breakthroughs, commercialization timelines",
-    "CRISPR gene editing: major research groups, recent clinical trials, ethical debates",
+    "AI PhD robotics research scientist",
+    "robot learning reinforcement learning PhD",
+    "computer vision robotics research engineer",
 ]
 
+def render_jobs(jobs, links, diagnostics=None, near_matches=None):
+    diagnostics = diagnostics or {}
+    near_matches = near_matches or []
+    cards = []
+    for job in jobs:
+        reqs = "".join(f"<li>{html.escape(r)}</li>" for r in job["requirements"])
+        cards.append(
+            "<article style='border:1px solid #dbe4ff;border-radius:18px;padding:22px;"
+            "margin:16px 0;background:linear-gradient(135deg,#ffffff,#f6f8ff);"
+            "box-shadow:0 8px 24px rgba(22,54,120,.08)'>"
+            f"<div style='font-size:12px;color:#526;letter-spacing:.08em'>"
+            f"{html.escape(job['source'].upper())} · POSTED {job['age_days']} DAYS AGO</div>"
+            f"<h2 style='margin:8px 0'>{html.escape(job['title'])}</h2>"
+            f"<p style='font-size:17px'><b>{html.escape(job['company'])}</b> · "
+            f"📍 {html.escape(job['location'])}</p>"
+            f"<p><b>💰 Salary:</b> {html.escape(job['salary_display'])}</p>"
+            f"<p><b>🎯 Relevance signals:</b> "
+            f"{html.escape(', '.join(job['matched_keywords']) or 'close concept match')}</p>"
+            f"<p>{html.escape(job['description'][:700])}</p>"
+            f"<details><summary><b>Experience requested ({len(job['experience'])})</b>"
+            f"</summary><ul>{''.join(f'<li>{html.escape(x)}</li>' for x in job['experience']) or '<li>Not explicitly stated</li>'}</ul></details>"
+            f"<details><summary><b>All extracted requirements ({len(job['requirements'])})</b></summary>"
+            f"<ul>{reqs or '<li>None clearly extracted</li>'}</ul></details><br>"
+            f"<a href='{html.escape(job['apply_url'], quote=True)}' target='_blank' "
+            "style='background:#1769e0;color:white;padding:9px 15px;border-radius:8px;"
+            "text-decoration:none'>Apply on original site ↗</a></article>")
+    searches = " · ".join(
+        f"<a href='{html.escape(x['url'], quote=True)}' target='_blank'>"
+        f"Search {html.escape(x['name'])} ↗</a>" for x in links)
+    audit = ""
+    if not jobs and diagnostics:
+        audit = (
+            "<section style='background:#fff4e5;border:1px solid #ffcc80;"
+            "border-radius:14px;padding:18px;margin:14px 0'>"
+            "<h3>Why zero jobs?</h3>"
+            f"<p>Missing requested concept: <b>{diagnostics.get('missing_requested_concept', 0)}</b><br>"
+            f"Incidental robotics mention: <b>{diagnostics.get('weak_domain_evidence', 0)}</b><br>"
+            f"Outside age window: <b>{diagnostics.get('outside_age_window', 0)}</b><br>"
+            f"Country mismatch: <b>{diagnostics.get('country_mismatch', 0)}</b><br>"
+            f"Missing date: <b>{diagnostics.get('missing_or_invalid_date', 0)}</b></p>"
+            "<p>Counts can overlap because one listing may fail several gates.</p></section>"
+        )
+    return f"<p>{searches}</p>{audit}{''.join(cards) or '<p>No verified feed matches.</p>'}"
 
-def run_research(query: str):
+
+def run_research(query: str, country: str, city: str, max_age_days: int):
     """Generator: streams live agent logs, then the final report."""
     if not query.strip():
-        yield "Please enter a research query.", ""
+        yield "Please enter a job search.", "", ""
+        return
+    if not country.strip():
+        yield "Country is required. City is optional.", "", ""
         return
 
     log_q: queue.Queue = queue.Queue()
@@ -35,7 +84,9 @@ def run_research(query: str):
 
     def worker():
         try:
-            result_holder["result"] = Coordinator(log=log).run(query)
+            result_holder["result"] = Coordinator(log=log).run(
+                query, country, city, int(max_age_days)
+            )
         except Exception as exc:
             log(f"ERROR: {exc}")
             result_holder["result"] = {"report": f"Run failed: {exc}"}
@@ -44,33 +95,48 @@ def run_research(query: str):
 
     threading.Thread(target=worker, daemon=True).start()
 
-    mode = "LOCAL (Gemma via Ollama)" if config.live_mode() else "DEMO"
+    mode = "LIVE PUBLIC JOB FEEDS"
     lines = [f"Mode: {mode}"]
     while True:
         item = log_q.get()
         if item is None:
             break
         lines.append(item)
-        yield "\n".join(lines), ""
+        yield "\n".join(lines), "", ""
 
-    report = result_holder.get("result", {}).get("report", "")
-    yield "\n".join(lines), report
+    result = result_holder.get("result", {})
+    yield "\n".join(lines), render_jobs(
+        result.get("jobs", []), result.get("search_links", []),
+        result.get("diagnostics"), result.get("near_matches")), result.get("report", "")
 
 
-with gr.Blocks(title="Multi-Agent Deep Research") as demo:
-    gr.Markdown("# 🔬 Multi-Agent Deep Research\n"
-                "A coordinator agent splits your query into subtasks, sub-agents "
-                "analyzes them **in parallel** with local Gemma, and the coordinator "
-                "writes the final report.")
-    query_box = gr.Textbox(label="Research query", lines=3,
-                           placeholder="e.g. Research silicon-based semiconductor companies: "
-                                       "5-year performance, collaborations, risks...")
+with gr.Blocks(title="AI Job Search") as demo:
+    gr.Markdown("# 🔎 Comprehensive AI Job Search\nLive feeds, extracted requirements, "
+                "ranked openings, reports, and direct Apply links.")
+    query_box = gr.Textbox(label="What job are you looking for?", lines=2,
+                           placeholder="e.g. AI PhD robotics research scientist")
+    with gr.Row():
+        country_box = gr.Dropdown(
+            choices=COUNTRIES, value="United States",
+            label="Country — required", filterable=True
+        )
+        city_box = gr.Textbox(
+            label="City — optional preference",
+            placeholder="e.g. Boston (other US cities remain eligible)"
+        )
+        age_box = gr.Slider(
+            minimum=1, maximum=30, value=10, step=1,
+            label="Maximum posting age (days)"
+        )
     gr.Examples(EXAMPLES, inputs=query_box)
     run_btn = gr.Button("Run research", variant="primary")
     with gr.Row():
         log_box = gr.Textbox(label="Agent activity (live)", lines=14, interactive=False)
-    report_box = gr.Markdown(label="Final report")
-    run_btn.click(run_research, inputs=query_box, outputs=[log_box, report_box])
+    jobs_box = gr.HTML(label="Live job results")
+    report_box = gr.Markdown(label="Comprehensive report")
+    run_btn.click(run_research,
+                  inputs=[query_box, country_box, city_box, age_box],
+                  outputs=[log_box, jobs_box, report_box])
 
 if __name__ == "__main__":
     demo.launch()

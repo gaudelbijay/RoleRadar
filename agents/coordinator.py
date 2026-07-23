@@ -25,6 +25,7 @@ from pathlib import Path
 import config
 from agents.subagent import run_subagent
 from core import llm
+from core.jobs import build_report, search_jobs
 
 REPORTS_DIR = Path(__file__).resolve().parent.parent / "reports"
 REPORTS_DIR.mkdir(exist_ok=True)
@@ -130,23 +131,26 @@ class Coordinator:
         return report
 
     # ------------------------------------------------------------------ #
-    def run(self, query: str) -> dict:
-        """Full pipeline. Returns report text, path, findings, and timings."""
+    def run(self, query: str, country: str = "United States", city: str = "",
+            max_age_days: int = 10) -> dict:
+        """Search live public job feeds and produce ranked dashboard results."""
+        if not country.strip():
+            raise ValueError("Country is required. City is optional.")
         started = datetime.now(timezone.utc)
-        subtasks = self.decompose(query)
-        findings = self.dispatch(query, subtasks)
-        report = self.synthesize(query, findings)
+        self.log("[coordinator] launching live job-source agents...")
+        search_result = search_jobs(
+            query, log=self.log, country=country, city=city,
+            max_age_days=max_age_days
+        )
+        self.log(f"[coordinator] ranking {search_result['fetched_count']} fetched listings...")
+        report = build_report(query, search_result)
 
         stamp = started.strftime("%Y%m%d-%H%M%S")
         path = REPORTS_DIR / f"report-{stamp}.md"
-        path.write_text(report)
+        path.write_text(report, encoding="utf-8")
         audit = REPORTS_DIR / f"audit-{stamp}.json"
         audit.write_text(json.dumps(
-            {"query": query, "subtasks": subtasks,
-             "agents": [{k: v for k, v in f.items() if k != "result"} |
-                        {"searches": f["result"]["searches"],
-                         "sources": f["result"]["sources"]} for f in findings]},
-            indent=2))
+            {"query": query, **search_result}, indent=2), encoding="utf-8")
         self.log(f"[coordinator] report saved -> {path}")
         return {"report": report, "report_path": str(path),
-                "audit_path": str(audit), "findings": findings}
+                "audit_path": str(audit), **search_result}

@@ -1,2 +1,3 @@
 gradio>=5.0.0
+python-jobspy>=1.1.82
 streamlit>=1.38.0

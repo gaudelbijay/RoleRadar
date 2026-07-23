@@ -14,27 +14,42 @@ import streamlit as st
 
 import config
 from agents.coordinator import Coordinator
+from core.jobs import COUNTRIES
 
-st.set_page_config(page_title="Multi-Agent Deep Research", page_icon="🔬", layout="wide")
+st.set_page_config(page_title="AI Job Search", page_icon="🔎", layout="wide")
 
-st.title("🔬 Multi-Agent Deep Research")
-st.caption("Coordinator agent → parallel research sub-agents → synthesized report")
+st.title("🔎 Comprehensive AI Job Search")
+st.caption("Live feeds → ranked openings → extracted requirements → direct applications")
 
-mode = "🟢 LOCAL (Gemma via Ollama)" if config.live_mode() else "🟡 DEMO mode"
+mode = "🟢 LIVE PUBLIC JOB FEEDS"
 st.info(mode)
 
 query = st.text_area(
-    "Research query",
-    placeholder="e.g. Research silicon-based semiconductor companies: 5-year "
-                "performance, key collaborations, risks, and how they compare",
+    "What job are you looking for?",
+    placeholder="e.g. AI PhD robotics research scientist",
     height=100,
+)
+location_col1, location_col2 = st.columns(2)
+with location_col1:
+    country = st.selectbox(
+        "Country — required", COUNTRIES,
+        index=COUNTRIES.index("United States")
+    )
+with location_col2:
+    city = st.text_input(
+        "City — optional preference",
+        placeholder="e.g. Boston (other cities remain eligible)"
+    )
+max_age_days = st.slider(
+    "Maximum posting age", min_value=1, max_value=30, value=10,
+    help="Undated jobs and jobs older than this number of days are excluded."
 )
 
 col1, col2 = st.columns([1, 3])
 with col1:
     run = st.button("Run research", type="primary", use_container_width=True)
 
-if run and query.strip():
+if run and query.strip() and country.strip():
     log_area = st.expander("Agent activity (live)", expanded=True)
     log_placeholder = log_area.empty()
     lines: list[str] = []
@@ -48,7 +63,9 @@ if run and query.strip():
 
     def worker():
         try:
-            result_holder["result"] = Coordinator(log=log).run(query)
+            result_holder["result"] = Coordinator(log=log).run(
+                query, country, city, max_age_days
+            )
         except Exception as exc:
             result_holder["error"] = exc
         finally:
@@ -73,10 +90,70 @@ if run and query.strip():
         st.error(f"Research run failed: {result_holder['error']}")
     else:
         result = result_holder["result"]
-        st.success(f"Report saved to `{result['report_path']}`")
+        st.success(f"Found {len(result['jobs'])} ranked jobs from "
+                   f"{result['fetched_count']} fetched listings.")
+        metric1, metric2, metric3 = st.columns(3)
+        metric1.metric("Verified matches", len(result["jobs"]))
+        metric2.metric("Maximum age", f"{result['max_age_days']} days")
+        metric3.metric("Location", ", ".join(
+            x for x in [result.get("city"), result.get("country")] if x
+        ) or "Any")
+        if not result["jobs"]:
+            st.error(
+                "No verified listing from the connected feeds passed the search. "
+                "This may be a feed-coverage issue, not proof that no such jobs exist."
+            )
+            diagnostics = result["diagnostics"]
+            st.markdown("#### Why listings were rejected")
+            st.dataframe({
+                "Gate": [
+                    "Missing requested concept", "Incidental robotics mention",
+                    "Outside age window",
+                    "Country mismatch", "Missing/invalid date",
+                ],
+                "Rejected listings": [
+                    diagnostics["missing_requested_concept"],
+                    diagnostics["weak_domain_evidence"],
+                    diagnostics["outside_age_window"],
+                    diagnostics["country_mismatch"],
+                    diagnostics["missing_or_invalid_date"],
+                ],
+            }, hide_index=True, use_container_width=True)
+            st.caption("Counts overlap because a listing may fail more than one gate.")
+        st.subheader("Search major job platforms")
+        columns = st.columns(len(result["search_links"]))
+        for column, link in zip(columns, result["search_links"]):
+            column.link_button(link["name"], link["url"], use_container_width=True)
+        st.subheader("Ranked live openings")
+        for index, job in enumerate(result["jobs"], 1):
+            with st.container(border=True):
+                st.markdown(f"### {index}. {job['title']}")
+                st.markdown(f"**{job['company']}** · {job['location']} · "
+                            f"Source: **{job['source']}**")
+                st.caption(
+                    f"Posted {job['published_iso']} · {job['age_days']} days ago · "
+                    f"Relevance signals: "
+                    f"{', '.join(job['matched_keywords']) or 'close concept match'}"
+                )
+                st.markdown(f"#### 💰 {job['salary_display']}")
+                st.write(job["description"][:900] or "No description supplied.")
+                with st.expander("Experience requested"):
+                    for item in job["experience"]:
+                        st.markdown(f"- {item}")
+                    if not job["experience"]:
+                        st.write("Not explicitly stated in the posting.")
+                with st.expander("Requirements extracted from this posting"):
+                    for requirement in job["requirements"]:
+                        st.markdown(f"- {requirement}")
+                    if not job["requirements"]:
+                        st.write("No clear requirement statements were extracted.")
+                st.link_button("Apply on original site ↗", job["apply_url"], type="primary")
+        st.subheader("Comprehensive report")
         st.markdown("---")
         st.markdown(result["report"])
         st.download_button("Download report (.md)", result["report"],
                            file_name="research_report.md")
+elif run and not query.strip():
+    st.warning("Please enter a job search query.")
 elif run:
-    st.warning("Please enter a research query.")
+    st.warning("Country is required. City is optional.")

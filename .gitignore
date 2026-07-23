@@ -203,6 +203,11 @@ cython_debug/
 # Temporary file for partial code execution
 tempCodeRunnerFile.py
 
+# Local and generated jobSearch artifacts
+.DS_Store
+reports/*.md
+reports/*.json
+
 # Ruff stuff:
 .ruff_cache/
 
