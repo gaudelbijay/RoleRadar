@@ -37,7 +37,7 @@ remain available while applications are prepared. A job card changes to
 
 ## Search controls
 
-- Choose **Jobs** or **Internships**. Jobs is the default. Internship mode only
+- Choose **Jobs** or **Internships**. Jobs is the default. Internship mode searches the requested role with dedicated intern terminology and only
   accepts listings with internship, intern, co-op, or trainee evidence; Jobs mode
   excludes those listings.
 - Enter a focused role or domain, such as `AI robotics research scientist`.

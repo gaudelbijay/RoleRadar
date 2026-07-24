@@ -61,6 +61,13 @@ EDUCATION_TERMS = {
     },
     "PhD": {"phd", "doctorate", "doctoral", "postdoctoral", "postdoc"},
 }
+US_STATE_CODES = {
+    "AL", "AK", "AZ", "AR", "CA", "CO", "CT", "DE", "FL", "GA", "HI", "ID",
+    "IL", "IN", "IA", "KS", "KY", "LA", "ME", "MD", "MA", "MI", "MN", "MS",
+    "MO", "MT", "NE", "NV", "NH", "NJ", "NM", "NY", "NC", "ND", "OH", "OK",
+    "OR", "PA", "RI", "SC", "SD", "TN", "TX", "UT", "VT", "VA", "WA",
+    "WV", "WI", "WY", "DC",
+}
 COUNTRY_ALIASES = {
     "united states": {"united states", "usa", "u.s.", "us"},
     "united kingdom": {"united kingdom", "uk", "u.k.", "great britain"},
@@ -189,7 +196,7 @@ def remoteok(query):
             for j in payload if isinstance(j, dict) and j.get("position") and j.get("url")]
 
 
-def top_job_sites(query, country, city, max_age_days):
+def top_job_sites(query, country, city, max_age_days, results_wanted=75):
     """Retrieve public listings from major sites through python-jobspy."""
     try:
         from jobspy import scrape_jobs
@@ -203,7 +210,7 @@ def top_job_sites(query, country, city, max_age_days):
         search_term=query,
         google_search_term=f"{query} jobs in {location}",
         location=location,
-        results_wanted=75,
+        results_wanted=results_wanted,
         hours_old=max_age_days * 24,
         country_indeed=country,
         verbose=0,
@@ -223,10 +230,15 @@ def top_job_sites(query, country, city, max_age_days):
                 item.get("interval"),
             ] if value is not None and str(value) != "nan"
         )
+        location_parts = []
+        for value in (item.get("location"), item.get("country")):
+            cleaned = clean(value)
+            if cleaned and cleaned.lower() not in {x.lower() for x in location_parts}:
+                location_parts.append(cleaned)
         jobs.append(_job(
             str(item.get("site") or "Major job site").title(),
             item.get("id") or apply_url, item.get("title"), item.get("company"),
-            item.get("location"), item.get("description"), apply_url,
+            ", ".join(location_parts), item.get("description"), apply_url,
             item.get("date_posted"), salary, item.get("job_type"),
             [item.get("job_level"), item.get("job_function")],
         ))
@@ -326,7 +338,14 @@ def location_matches(location, country=""):
     if country:
         requested = country.strip().lower()
         aliases = COUNTRY_ALIASES.get(requested, {requested})
-        if not any(re.search(rf"\b{re.escape(alias)}\b", value) for alias in aliases):
+        explicit_country = any(
+            re.search(rf"\b{re.escape(alias)}\b", value) for alias in aliases
+        )
+        us_state_location = (
+            requested == "united states"
+            and bool(re.search(r",\s*(?:" + "|".join(sorted(US_STATE_CODES)) + r")\b", location, re.I))
+        )
+        if not explicit_country and not us_state_location:
             return False
     return True
 
@@ -340,10 +359,17 @@ def rank(jobs, query, limit=30, country="", city="", max_age_days=MAX_AGE_DAYS,
         raise ValueError("Search type must be Jobs or Internships.")
     words = {w for w in re.findall(r"[a-z0-9+#.]{2,}", query.lower()) if w not in STOP}
     query_text = query.lower()
-    requested_concepts = {
-        name: terms for name, terms in CONCEPTS.items()
-        if any(re.search(rf"\b{re.escape(term)}\b", query_text) for term in terms)
-    }
+    requested_concepts = {}
+    covered_query_terms = set()
+    for name, terms in CONCEPTS.items():
+        query_evidence = {
+            term for term in terms
+            if re.search(rf"\b{re.escape(term)}\b", query_text)
+        }
+        if (name not in {"research"} and query_evidence
+                and not query_evidence.issubset(covered_query_terms)):
+            requested_concepts[name] = terms
+            covered_query_terms.update(query_evidence)
     requested_concepts[f"education: {education}"] = EDUCATION_TERMS[education]
     unique = {}
     for job in jobs:
@@ -366,6 +392,10 @@ def rank(jobs, query, limit=30, country="", city="", max_age_days=MAX_AGE_DAYS,
             )
             if evidence:
                 job["concept_evidence"][concept] = evidence[:6]
+        education_key = f"education: {education}"
+        if (search_type == "Internships" and education_key not in job["concept_evidence"]
+                and re.search(r"\b(?:currently pursuing|enrolled in|graduate student|graduate program|degree program|doctoral candidate)\b", body)):
+            job["concept_evidence"][education_key] = ["student eligibility"]
         robotics_evidence = job["concept_evidence"].get("robotics", [])
         robotics_occurrences = sum(
             len(re.findall(rf"\b{re.escape(term)}\b", body))
@@ -375,10 +405,15 @@ def rank(jobs, query, limit=30, country="", city="", max_age_days=MAX_AGE_DAYS,
             re.search(rf"\b{re.escape(term)}\b", title)
             for term in CONCEPTS["robotics"]
         )
+        strong_robotics_evidence = set(robotics_evidence) & STRONG_ROBOTICS
+        technical_title = bool(re.search(
+            r"\b(?:engineer|engineering|scientist|research|developer|software|hardware|"
+            r"computer vision|machine learning|perception|controls?|autonomy|technical)\b",
+            title,
+        ))
         job["robotics_role_evidence"] = (
             title_has_robotics
-            or bool(set(robotics_evidence) & STRONG_ROBOTICS)
-            or robotics_occurrences >= 2
+            or (technical_title and len(strong_robotics_evidence) >= 2)
         )
         job["keyword_coverage"] = (
             len(job["matched_keywords"]) / len(words) if words else 1.0
@@ -433,7 +468,11 @@ def rank(jobs, query, limit=30, country="", city="", max_age_days=MAX_AGE_DAYS,
         if wrong_search_type:
             reasons.append("search type mismatch")
             diagnostics["search_type_mismatch"] += 1
-        if not all(c in job["concept_evidence"] for c in requested_concepts):
+        hard_concepts = [
+            concept for concept in requested_concepts
+            if not (search_type == "Internships" and concept.startswith("education:"))
+        ]
+        if not all(c in job["concept_evidence"] for c in hard_concepts):
             reasons.append("missing requested concept")
             diagnostics["missing_requested_concept"] += 1
         if "robotics" in requested_concepts and not job["robotics_role_evidence"]:
@@ -502,12 +541,32 @@ def search_jobs(query, log=print, max_results=30, country="", city="",
     if not 1 <= int(max_age_days) <= 90:
         raise ValueError("Maximum posting age must be between 1 and 90 days.")
     max_age_days = int(max_age_days)
-    sources = [("Remotive", remotive), ("Jobicy", jobicy),
-               ("Arbeitnow", arbeitnow), ("Remote OK", remoteok),
-               ("LinkedIn / Indeed / Google",
-                lambda q: top_job_sites(q, country, city, max_age_days))]
+    has_intern_term = bool(re.search(r"\b(?:intern(?:ship)?s?|co[- ]?op|trainee)\b", query, re.I))
+    source_query = (f"{query} intern" if search_type == "Internships" and not has_intern_term
+                    else query if search_type == "Internships"
+                    else f"{query} {education}").strip()
+    if search_type == "Internships":
+        internship_queries = [source_query]
+        query_lower = query.lower()
+        for focused in (
+            "robotics intern" if any(x in query_lower for x in ROBOTICS) else "",
+            "computer vision intern" if "computer vision" in query_lower else "",
+            "machine learning intern" if any(x in query_lower for x in ("machine learning", " ai ")) else "",
+        ):
+            if focused and focused not in internship_queries:
+                internship_queries.append(focused)
+        sources = [
+            (f"Major internship sites {index}",
+             lambda _q, focused=focused: top_job_sites(
+                 focused, country, city, max_age_days, results_wanted=50))
+            for index, focused in enumerate(internship_queries[:3], 1)
+        ]
+    else:
+        sources = [("Remotive", remotive), ("Jobicy", jobicy),
+                   ("Arbeitnow", arbeitnow), ("Remote OK", remoteok),
+                   ("LinkedIn / Indeed / Google",
+                    lambda q: top_job_sites(q, country, city, max_age_days))]
     jobs, errors = [], []
-    source_query = f"{query} {education} {'internship co-op' if search_type == 'Internships' else ''}".strip()
     with ThreadPoolExecutor(max_workers=len(sources)) as pool:
         futures = {}
         for name, fetcher in sources:

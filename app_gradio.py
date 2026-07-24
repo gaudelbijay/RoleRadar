@@ -49,6 +49,8 @@ CSS = """
 .apply-link {display:inline-block;background:#1d4ed8;color:white!important;padding:10px 16px;border-radius:10px;text-decoration:none!important;font-weight:700}
 .platform-links {display:flex;gap:10px;flex-wrap:wrap;margin:10px 0 20px}.platform-links a {color:#1e3a8a!important;background:#eff6ff;padding:8px 12px;border:1px solid #93c5fd;border-radius:999px;text-decoration:none!important;font-weight:650}
 .queue-card {color:#052e16!important;border-left:4px solid #16a34a;background:#dcfce7;border-top:1px solid #86efac;border-right:1px solid #86efac;border-bottom:1px solid #86efac;padding:14px 17px;border-radius:12px;margin:10px 0}.queue-card b,.queue-card br {color:#052e16!important}
+.no-match-card {color:#0f172a!important;border:1px solid #bfdbfe;border-radius:18px;padding:24px;background:linear-gradient(145deg,#fff,#f8faff);box-shadow:0 10px 30px rgba(30,64,175,.08)}
+.no-match-card h3,.no-match-card p,.no-match-card b {color:#0f172a!important}
 .searching-state {display:flex;align-items:center;gap:16px;padding:22px 24px;margin:8px 0 20px;border:1px solid #bfdbfe;border-radius:18px;background:linear-gradient(135deg,#eff6ff,#f5f3ff);box-shadow:0 10px 26px rgba(37,99,235,.10);color:#172554!important}
 .searching-spinner {width:30px;height:30px;flex:0 0 30px;border:4px solid #bfdbfe;border-top-color:#4f46e5;border-radius:50%;animation:jobsearch-spin .8s linear infinite}
 .searching-copy b,.searching-copy span {color:#172554!important}.searching-copy b {display:block;font-size:16px;margin-bottom:3px}.searching-copy span {font-size:13px;opacity:.78}
@@ -117,7 +119,7 @@ def render_jobs(jobs, links, diagnostics=None):
             f"<div class='job-action'>{apply_link}</div></article>")
     audit = ""
     if not jobs and diagnostics:
-        audit = ("<div class='job-card'><h3>No verified matches</h3>"
+        audit = ("<div class='no-match-card'><h3>No verified matches</h3>"
                  f"<p>Wrong search type: <b>{diagnostics.get('search_type_mismatch', 0)}</b> · "
                  f"Missing concept: <b>{diagnostics.get('missing_requested_concept', 0)}</b> · "
                  f"Weak domain evidence: <b>{diagnostics.get('weak_domain_evidence', 0)}</b> · "
