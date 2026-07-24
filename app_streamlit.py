@@ -11,6 +11,7 @@ from core.applications import (
     ApplicantProfile, extract_cv_text, prepare_application, validate_profile,
 )
 from core.jobs import COUNTRIES, EDUCATION_LEVELS
+from core.company_people import research_all_companies
 from core.resume_intelligence import analyze_candidate
 
 st.set_page_config(page_title="Job Search", page_icon="🔎", layout="wide")
@@ -20,7 +21,7 @@ st.caption("Find recent jobs, prepare applications from your CV, and review befo
 for key, default in (("application_queue", {}), ("search_result", None),
                      ("cv_text", ""), ("cv_name", ""),
                      ("applicant_profile", None), ("application_notice", ""),
-                     ("resume_intelligence", None)):
+                     ("resume_intelligence", None), ("company_people", [])):
     if key not in st.session_state:
         st.session_state[key] = default
 
@@ -180,6 +181,7 @@ if run and query.strip() and country.strip():
         st.error(f"Search failed: {result_holder['error']}")
     else:
         st.session_state.search_result = result_holder["result"]
+        st.session_state.company_people = []
         st.session_state.resume_intelligence = result_holder.get("candidate")
 elif run and not query.strip():
     st.warning("Please enter a job search query.")
@@ -242,6 +244,41 @@ if result:
     columns = st.columns(len(result["search_links"]))
     for column, link in zip(columns, result["search_links"]):
         column.link_button(link["name"], link["url"], use_container_width=True)
+
+    st.subheader("Public technical staff")
+    st.caption("On demand, scan official public company pages. Hiring managers are highlighted only when explicitly identified; LinkedIn and private contact details are not collected.")
+    if st.button("Research technical staff for all matched companies", disabled=not result["jobs"]):
+        with st.spinner("Reading bounded official company pages..."):
+            st.session_state.company_people = research_all_companies(result["jobs"])
+    for company_result in st.session_state.company_people:
+        with st.expander(f"{company_result['company']} — {len(company_result['people'])} technical staff"):
+            st.caption(f"{company_result['pages_scanned']} official page(s) scanned. {company_result['note']}")
+            if company_result.get("official_url"):
+                st.link_button("Open official company site ↗", company_result["official_url"])
+            public_contacts = company_result.get("generic_emails", [])
+            if public_contacts:
+                st.markdown("**Public recruiting contact:** " + " · ".join(public_contacts))
+            contact_urls = company_result.get("contact_urls", [])
+            if contact_urls:
+                st.link_button("Careers / contact page ↗", contact_urls[0],
+                               key=f"company-contact-{company_result['company']}")
+            for person_index, person in enumerate(company_result["people"]):
+                label = "Hiring manager — explicitly identified" if person["hiring_manager"] else "Relevant technical staff"
+                st.markdown(f"**{person['name']}** · {person['title']}  \n:{'orange' if person['hiring_manager'] else 'blue'}-badge[{label}] · {person['technical_area']}")
+                if person.get("bio"):
+                    st.write(person["bio"])
+                link_columns = st.columns(max(1, len(person.get("public_links", [])) + 1))
+                if person.get("official_profile_url"):
+                    st.link_button("Official profile ↗", person["official_profile_url"], key=f"person-{company_result['company']}-{person_index}")
+                for link_index, item in enumerate(person.get("public_links", [])):
+                    link_columns[min(link_index + 1, len(link_columns) - 1)].link_button(
+                        f"{item['label']} ↗", item["url"],
+                        key=f"public-link-{company_result['company']}-{person_index}-{link_index}",
+                    )
+                if person.get("source_url"):
+                    st.caption(f"Source: {person['source_url']}")
+            if not company_result["people"]:
+                st.write("No technical staff were explicitly listed on the scanned official pages.")
 
     st.subheader("Ranked live openings")
     for index, job in enumerate(result["jobs"], 1):

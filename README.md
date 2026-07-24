@@ -52,6 +52,10 @@ scraping them, and optionally analyze protected public portfolio pages—includi
 profile websites and repository homepages discovered through GitHub. Country,
 recency, education, and domain requirements remain mandatory.
 
+## Public company staff research
+
+For matched companies, Gradio automatically scans after each successful search, while Streamlit exposes a manual research action. The bounded research scans a bounded set of official public pages and lists named technical staff with their titles, technical areas, and official profile links. Hiring managers receive a distinct highlight only when a public source explicitly identifies them; otherwise people are clearly labeled as relevant technical staff. The feature does not scrape LinkedIn or expose personal contact details. It may show official biographies, source evidence, explicitly linked GitHub or portfolio pages, careers pages, and generic company-domain recruiting addresses; personal Gmail and guessed addresses are excluded.
+
 ## Application workflow
 
 Upload a PDF, DOCX, TXT, or Markdown CV, provide the required applicant fields,

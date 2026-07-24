@@ -12,6 +12,7 @@ from core.applications import (
     ApplicantProfile, extract_cv_text, prepare_application, validate_profile,
 )
 from core.jobs import COUNTRIES, EDUCATION_LEVELS
+from core.company_people import research_all_companies, research_company
 from core.resume_intelligence import analyze_candidate
 
 EXAMPLES = [
@@ -50,6 +51,9 @@ CSS = """
 .apply-link {display:inline-block;background:#1d4ed8;color:white!important;padding:10px 16px;border-radius:10px;text-decoration:none!important;font-weight:700}
 .platform-links {display:flex;gap:10px;flex-wrap:wrap;margin:10px 0 20px}.platform-links a {color:#1e3a8a!important;background:#eff6ff;padding:8px 12px;border:1px solid #93c5fd;border-radius:999px;text-decoration:none!important;font-weight:650}
 .queue-card {color:#052e16!important;border-left:4px solid #16a34a;background:#dcfce7;border-top:1px solid #86efac;border-right:1px solid #86efac;border-bottom:1px solid #86efac;padding:14px 17px;border-radius:12px;margin:10px 0}.queue-card b,.queue-card br {color:#052e16!important}
+.feature-panel {background:linear-gradient(145deg,#ffffff,#f8fafc)!important;border:1px solid #cbd5e1!important;border-radius:18px!important;padding:18px!important;box-shadow:0 8px 24px rgba(15,23,42,.06)}
+.feature-panel h2 {color:#0f172a!important;margin-bottom:4px!important}.feature-panel p {color:#475569!important}.feature-panel .empty-research {background:#f1f5f9;border:1px dashed #94a3b8;border-radius:12px;padding:14px 16px;color:#475569!important;margin-top:12px}
+.people-grid {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}.people-company {border:1px solid #cbd5e1;border-radius:16px;padding:16px;background:#fff}.company-contact {background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:10px;margin:10px 0;font-size:12px}.company-contact a,.person-links a {color:#1d4ed8!important}.person-row {border-top:1px solid #e2e8f0;padding:13px 0}.person-title {font-weight:650;color:#334155!important}.person-bio {font-size:12px;line-height:1.45;margin:8px 0!important;color:#475569!important}.person-links {font-size:12px}.manager-badge {display:inline-block;background:#fef3c7;color:#92400e!important;border:1px solid #f59e0b;border-radius:999px;padding:3px 8px;font-size:11px;font-weight:800}.leader-badge {display:inline-block;background:#e0f2fe;color:#075985!important;border-radius:999px;padding:3px 8px;font-size:11px;font-weight:700}
 .no-match-card {color:#0f172a!important;border:1px solid #bfdbfe;border-radius:18px;padding:24px;background:linear-gradient(145deg,#fff,#f8faff);box-shadow:0 10px 30px rgba(30,64,175,.08)}
 .no-match-card h3,.no-match-card p,.no-match-card b {color:#0f172a!important}
 .searching-state {display:flex;align-items:center;gap:16px;padding:22px 24px;margin:8px 0 20px;border:1px solid #bfdbfe;border-radius:18px;background:linear-gradient(135deg,#eff6ff,#f5f3ff);box-shadow:0 10px 26px rgba(37,99,235,.10);color:#172554!important}
@@ -165,11 +169,12 @@ def run_research(query, search_type, country, city, max_age_days, education, min
     empty_selector = gr.update(choices=[], value=None)
     empty_profile = render_resume_profile(None)
     empty_report = gr.update(value=None, visible=False)
+    empty_people = '<div class="empty-research">Technical staff will appear here after a successful search.</div>'
     if not str(query).strip():
-        yield "Enter a job search query.", "", empty_report, empty_selector, [], empty_profile
+        yield "Enter a job search query.", "", empty_report, empty_selector, [], empty_profile, empty_people
         return
     if not str(country).strip():
-        yield "Country is required.", "", empty_report, empty_selector, [], empty_profile
+        yield "Country is required.", "", empty_report, empty_selector, [], empty_profile, empty_people
         return
     log_q, result_holder = queue.Queue(), {}
 
@@ -195,28 +200,111 @@ def run_research(query, search_type, country, city, max_age_days, education, min
 
     threading.Thread(target=worker, daemon=True).start()
     lines = ["Searching live public job sources..."]
-    yield "\n".join(lines), render_searching(), empty_report, empty_selector, [], empty_profile
+    yield "\n".join(lines), render_searching(), empty_report, empty_selector, [], empty_profile, empty_people
     while True:
         item = log_q.get()
         if item is None:
             break
         lines.append(item)
-        yield "\n".join(lines), render_searching(item), empty_report, empty_selector, [], empty_profile
+        yield "\n".join(lines), render_searching(item), empty_report, empty_selector, [], empty_profile, empty_people
     if result_holder.get("error"):
         error_message = html.escape(result_holder["error"])
         error_html = f"<div class=\"queue-card\"><b>Search stopped</b><br>{error_message}</div>"
-        yield "\n".join(lines + ["ERROR: " + result_holder["error"]]), error_html, empty_report, empty_selector, [], empty_profile
+        yield "\n".join(lines + ["ERROR: " + result_holder["error"]]), error_html, empty_report, empty_selector, [], empty_profile, empty_people
         return
     result = result_holder["result"]
     candidate = result_holder.get("candidate")
     jobs = result.get("jobs", [])
     choices = _job_choices(jobs)
     selector = gr.update(choices=choices, value=choices[0] if choices else None)
-    yield ("\n".join(lines),
-           render_jobs(jobs, result.get("search_links", []), result.get("diagnostics")),
-           gr.update(value=result.get("pdf_path"), visible=bool(result.get("pdf_path"))),
-           selector, jobs, render_resume_profile(candidate))
+    job_html = render_jobs(jobs, result.get("search_links", []), result.get("diagnostics"))
+    report_update = gr.update(value=result.get("pdf_path"), visible=bool(result.get("pdf_path")))
+    profile_html = render_resume_profile(candidate)
+    people_loading = render_searching("Jobs found. Reading official company staff pages...")
+    yield "\n".join(lines), job_html, report_update, selector, jobs, profile_html, people_loading
+    people_results = research_all_companies(jobs) if jobs else []
+    yield ("\n".join(lines + [f"Technical staff research completed for {len(people_results)} companies."]),
+           job_html, report_update, selector, jobs, profile_html,
+           render_company_people(people_results))
 
+
+
+def render_company_people(results):
+    if not results:
+        return '<div class="empty-research">Select a job above, then choose a research action.</div>'
+    cards = []
+    for result in results:
+        official = _valid_url(result.get("official_url"))
+        heading = html.escape(result.get("company") or "Company")
+        if official:
+            heading = (f'<a href="{html.escape(official, quote=True)}" target="_blank">'
+                       f'{heading} ↗</a>')
+        contact_bits = []
+        for email_address in result.get("generic_emails", []):
+            safe_email = html.escape(email_address)
+            contact_bits.append(f'<a href="mailto:{safe_email}">✉ {safe_email}</a>')
+        for contact_url in result.get("contact_urls", [])[:3]:
+            safe_url = _valid_url(contact_url)
+            if safe_url:
+                contact_bits.append(
+                    f'<a href="{html.escape(safe_url, quote=True)}" target="_blank">Careers / contact ↗</a>'
+                )
+        contact_html = (
+            '<div class="company-contact"><b>Public company contact</b><br>'
+            + " · ".join(contact_bits) + "</div>"
+            if contact_bits else ""
+        )
+        rows = []
+        for person in result.get("people", []):
+            badge = ('<span class="manager-badge">Hiring manager — explicitly identified</span>'
+                     if person.get("hiring_manager") else
+                     '<span class="leader-badge">Relevant technical staff</span>')
+            profile = _valid_url(person.get("official_profile_url"))
+            name = html.escape(person.get("name") or "Unknown")
+            if profile:
+                name = (f'<a href="{html.escape(profile, quote=True)}" target="_blank">'
+                        f'{name} ↗</a>')
+            public_links = []
+            if profile:
+                public_links.append(f'<a href="{html.escape(profile, quote=True)}" target="_blank">Official profile ↗</a>')
+            for item in person.get("public_links", []):
+                link_url = _valid_url(item.get("url"))
+                if link_url:
+                    public_links.append(
+                        f'<a href="{html.escape(link_url, quote=True)}" target="_blank">'
+                        f'{html.escape(item.get("label") or "Public link")} ↗</a>'
+                    )
+            source = _valid_url(person.get("source_url"))
+            if source:
+                public_links.append(f'<a href="{html.escape(source, quote=True)}" target="_blank">Source ↗</a>')
+            bio = html.escape(person.get("bio") or "No public biography was provided on the source page.")
+            links_html = " · ".join(public_links)
+            rows.append(
+                f'<div class="person-row">{badge}<br><b>{name}</b><br>'
+                f'<span class="person-title">{html.escape(person.get("title") or "Title not stated")}</span><br>'
+                f'<small>{html.escape(person.get("technical_area") or "Technical")}</small>'
+                f'<p class="person-bio">{bio}</p><div class="person-links">{links_html}</div></div>'
+            )
+        content = "".join(rows) or '<p>No technical staff were explicitly listed on the scanned official pages.</p>'
+        cards.append(
+            f'<section class="people-company"><h3>{heading}</h3>'
+            f'<p><small>{result.get("pages_scanned", 0)} official page(s) scanned · '
+            f'{html.escape(result.get("note") or "")}</small></p>{contact_html}{content}</section>'
+        )
+    return f'<div class="people-grid">{"".join(cards)}</div>'
+
+
+def research_selected_ui(selected, jobs):
+    if not selected or not jobs:
+        return '<div class="no-match-card">Search for jobs and choose one first.</div>'
+    index = int(str(selected).split(" · ", 1)[0]) - 1
+    return render_company_people([research_company(jobs[index])])
+
+
+def research_all_ui(jobs):
+    if not jobs:
+        return '<div class="no-match-card">Search for jobs first.</div>'
+    return render_company_people(research_all_companies(jobs))
 
 
 def _profile(name, email, phone, location, linkedin, portfolio,
@@ -360,10 +448,21 @@ with gr.Blocks(title="Job Search") as demo:
     jobs_box = gr.HTML()
     report_box = gr.File(label="Download styled PDF report", visible=False)
 
-    with gr.Group():
+    with gr.Group(elem_classes="feature-panel"):
+        gr.Markdown("## Choose a result")
+        selected_job = gr.Dropdown(label="Job opening", choices=[], info="This selection is used for company research and application preparation.")
+
+    with gr.Group(elem_classes="feature-panel"):
+        gr.Markdown("## Public technical staff")
+        gr.Markdown("Read official public company pages on demand. A person is marked as a hiring manager only when a public source says so explicitly.")
+        with gr.Row():
+            people_selected_btn = gr.Button("🔎 Research selected company", variant="primary")
+            people_all_btn = gr.Button("🏢 Research all result companies", variant="primary")
+        company_people_box = gr.HTML('<div class="empty-research">Select a job above, then choose a research action.</div>')
+
+    with gr.Group(elem_classes="feature-panel"):
         gr.Markdown("## Prepare applications")
-        gr.Markdown("Select a result, prepare a truthful draft, then review and submit on the employer's site.")
-        selected_job = gr.Dropdown(label="Choose a job", choices=[])
+        gr.Markdown("Prepare a truthful draft for the selected result, then review it before opening the employer’s site.")
         with gr.Row():
             prepare_btn = gr.Button("Prepare selected application", variant="primary")
             prepare_all_btn = gr.Button("Prepare all results")
@@ -373,11 +472,13 @@ with gr.Blocks(title="Job Search") as demo:
         with gr.Accordion("Application review queue", open=True):
             queue_box = gr.HTML("<p>No prepared applications yet.</p>")
 
-    search_outputs = [log_box, jobs_box, report_box, selected_job, jobs_state, resume_box]
+    search_outputs = [log_box, jobs_box, report_box, selected_job, jobs_state, resume_box, company_people_box]
     run_btn.click(run_research,
                   [query_box, search_type, country_box, city_box, age_box, education_box, salary_box, cv_file,
                    linkedin, portfolio, use_github, use_portfolios],
                   search_outputs)
+    people_selected_btn.click(research_selected_ui, [selected_job, jobs_state], company_people_box)
+    people_all_btn.click(research_all_ui, jobs_state, company_people_box)
     profile_inputs = [cv_file, name, email, phone, applicant_location, linkedin,
                       portfolio, authorization, sponsorship, relocation, salary]
     prepare_btn.click(prepare_selected,

@@ -56,6 +56,12 @@ the full posting. Robotics searches
 still require meaningful robotics-domain evidence. Undated and stale jobs are
 removed, and remaining results are ordered newest-first.
 
+## Research public company staff
+
+After every successful Gradio search, staff research runs automatically for all matched companies after the job cards appear. The **Research selected company** and **Research all result companies** buttons can refresh the results. Streamlit provides a manual all-company action. The app reads a maximum of five same-domain pages from each verified official company site and extracts only publicly named people with technical roles.
+
+An orange **Hiring manager — explicitly identified** badge appears only when an official page or the job description explicitly uses hiring-manager wording with a person’s name. Everyone else is labeled **Relevant technical staff**; the app does not infer that executives or engineering leaders own the vacancy. LinkedIn, job boards, applicant-tracking sites, login-protected pages, personal email addresses, phone numbers, and private contact data are excluded. When explicitly published on the official company domain, the dashboard may show a generic recruiting address, careers page, staff biography, source evidence, and staff-linked GitHub or portfolio page. Results remain in the dashboard session and are not added to the PDF report or local audit.
+
 ## Prepare and apply
 
 Upload a PDF, DOCX, TXT, or Markdown CV and complete the required name and email

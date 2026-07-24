@@ -143,7 +143,7 @@ def valid_url(value) -> str:
 
 
 def _job(source, source_id, title, company, location, description, url,
-         published="", salary="", job_type="", tags=None):
+         published="", salary="", job_type="", tags=None, company_url=""):
     return {
         "id": f"{source}:{source_id}", "source": source,
         "title": clean(title) or "Untitled role",
@@ -152,6 +152,7 @@ def _job(source, source_id, title, company, location, description, url,
         "description": clean(description), "apply_url": valid_url(url),
         "published": str(published or ""), "salary": clean(salary),
         "job_type": clean(job_type).replace("_", " "),
+        "company_url": valid_url(company_url),
         "tags": [clean(tag) for tag in (tags or []) if tag],
     }
 
@@ -241,6 +242,8 @@ def top_job_sites(query, country, city, max_age_days, results_wanted=75):
             ", ".join(location_parts), item.get("description"), apply_url,
             item.get("date_posted"), salary, item.get("job_type"),
             [item.get("job_level"), item.get("job_function")],
+            company_url=(valid_url(item.get("company_url_direct"))
+                         or valid_url(item.get("company_url"))),
         ))
     return jobs
 
