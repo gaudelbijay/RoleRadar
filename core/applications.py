@@ -21,16 +21,39 @@ class ApplicantProfile:
 
 def extract_cv_text(filename: str, file_data: bytes) -> str:
     suffix = filename.lower().rsplit(".", 1)[-1] if "." in filename else ""
+    embedded_urls = []
     if suffix == "pdf":
         from pypdf import PdfReader
-        text = "\n".join(page.extract_text() or "" for page in PdfReader(io.BytesIO(file_data)).pages)
+        reader = PdfReader(io.BytesIO(file_data))
+        pages = []
+        for page in reader.pages:
+            pages.append(page.extract_text() or "")
+            for annotation_ref in page.get("/Annots", []) or []:
+                try:
+                    annotation = annotation_ref.get_object()
+                    action = annotation.get("/A")
+                    action = action.get_object() if hasattr(action, "get_object") else action
+                    uri = action.get("/URI") if action else None
+                    if uri and str(uri).startswith(("http://", "https://")):
+                        embedded_urls.append(str(uri))
+                except (AttributeError, TypeError, ValueError):
+                    continue
+        text = "\n".join(pages)
     elif suffix == "docx":
         from docx import Document
-        text = "\n".join(p.text for p in Document(io.BytesIO(file_data)).paragraphs)
+        document = Document(io.BytesIO(file_data))
+        text = "\n".join(p.text for p in document.paragraphs)
+        for relationship in document.part.rels.values():
+            if relationship.reltype.endswith("/hyperlink"):
+                target = str(relationship.target_ref or "")
+                if target.startswith(("http://", "https://")):
+                    embedded_urls.append(target)
     elif suffix in {"txt", "md"}:
         text = file_data.decode("utf-8", errors="replace")
     else:
         raise ValueError("Upload a PDF, DOCX, TXT, or Markdown CV.")
+    if embedded_urls:
+        text += "\n" + "\n".join(dict.fromkeys(embedded_urls))
     text = re.sub(r"\n{3,}", "\n\n", text).strip()
     if not text:
         raise ValueError("No readable text was found. Try a text-based PDF or DOCX file.")

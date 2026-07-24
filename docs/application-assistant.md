@@ -9,8 +9,8 @@ employer form.
 ## Gradio workflow
 
 1. Launch with `./run.sh gradio`.
-2. Upload a PDF, DOCX, TXT, or Markdown CV under **Application profile**.
-3. Open **Applicant details** and enter at least a valid full name and email.
+2. Use the visible **Application profile** sidebar on the left to upload a PDF, DOCX, TXT, or Markdown CV.
+3. Enter at least a valid full name and email in the visible profile fields.
 4. Search for jobs.
 5. Select a job under **Prepare applications**, then select **Prepare selected
    application**; alternatively select **Prepare all results**.
@@ -32,6 +32,10 @@ hidden at any time.
 
 Preparation buttons remain disabled until both the CV and profile are ready.
 
+## Resume intelligence
+
+Searching with an uploaded CV runs parallel resume and link agents before ranking. Public GitHub evidence can enrich detected skills. LinkedIn URLs are recognized but not fetched. Public portfolio analysis is opt-in. See [Resume intelligence](resume-intelligence.md) for scoring, safety, and privacy details.
+
 ## Generated material
 
 A prepared application contains CV terms overlapping the posting, a
@@ -41,8 +45,9 @@ posting text; qualifications are not invented.
 
 ## Privacy and limitations
 
-CV and profile data remain in the active local dashboard process/session and
-are excluded from Markdown, PDF, and JSON reports. Restarting the dashboard
+Raw CV text, fetched page text, and applicant contact fields remain in the active
+dashboard process/session and are excluded from reports. Derived match terms and
+estimated fit scores may appear in Markdown, PDF, and JSON output. Restarting the dashboard
 clears application state. Do not expose a locally running dashboard publicly
 when it contains personal information.
 

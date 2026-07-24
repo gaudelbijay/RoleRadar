@@ -1,8 +1,8 @@
 # Job Search technical design
 
-Job Search combines live job aggregation with review-first application
-preparation. The same search and preparation modules serve two explicitly
-launchable dashboards:
+Job Search combines live aggregation, evidence-gated ranking, resume
+intelligence, reporting, and review-first application preparation. Gradio and
+Streamlit are explicit launch modes:
 
 ```bash
 ./run.sh gradio
@@ -12,51 +12,58 @@ launchable dashboards:
 ## Data flow
 
 ```text
+CV + optional GitHub/portfolio links
+  └─ parallel resume intelligence agents
+       └─ derived skills, roles, domains, education, provenance
+
 query + country + optional city + age + education
   └─ coordinator
-      ├─ Remotive
-      ├─ Jobicy
-      ├─ Arbeitnow
-      ├─ Remote OK
+      ├─ Remotive                 ├─ Jobicy
+      ├─ Arbeitnow                ├─ Remote OK
       └─ JobSpy: LinkedIn + Indeed + Google
            ↓
-      normalize → deduplicate → evidence gates → newest-first rank
+      normalize → deduplicate → hard eligibility gates
            ↓
-      Gradio cards or Streamlit cards
+      no CV: newest-first
+      CV: resume fit + query relevance + city preference + recency
+           ↓
+      Gradio or Streamlit cards
            ├─ original application links
            ├─ Markdown + JSON audit + styled PDF
-           └─ optional CV/profile preparation
-                    ↓
-              editable draft → applicant review → original employer form
+           └─ editable application drafts → applicant review
 ```
 
-A normalized job contains title, company, location, source, description,
-publication date, type, salary evidence, tags, extracted requirements,
-experience, relevance evidence, and an original application URL.
+A normalized job contains title, company, location, source, description, date,
+type, salary evidence, tags, extracted requirements, experience, relevance
+evidence, and an original application URL.
 
-`core/applications.py` reads PDF, DOCX, TXT, and Markdown CVs and creates drafts
-from CV/posting overlap and applicant-provided profile values. It does not
-invent qualifications or submit forms. Gradio and Streamlit keep application
-state separate from generated search reports.
+`core.skill_taxonomy.py` supplies a broad cross-industry taxonomy rather than an
+AI-only vocabulary. `core.resume_intelligence.py` extracts structured CV evidence, recognizes URLs,
+uses public GitHub API metadata, and optionally reads protected public portfolio
+pages. LinkedIn links are recognized without scraping. Name, email, phone,
+photos, work authorization, sponsorship, relocation, and salary expectations
+are not ranking features.
 
-LinkedIn, Indeed, Glassdoor, and Google targeted search URLs supplement feed
-coverage. Authenticated pages are not scraped and platform restrictions are not
-bypassed.
+`core.applications.py` creates review drafts from CV/posting overlap and
+applicant-supplied fields. It does not invent qualifications or submit forms.
+Raw CV and fetched page text stay outside reports; derived match terms and fit
+scores may be reported for explainability.
 
 ## Current limitations
 
 - Public-source coverage and fields vary by site and time.
-- Salary and experience remain undisclosed when the source omits them.
+- GitHub unauthenticated requests are rate-limited.
+- LinkedIn profile content is not fetched.
 - Scanned image-only PDFs require OCR before upload.
-- Employer login, consent, CAPTCHA, assessments, and custom screening questions
-  require applicant review on the original site.
-- Application tracking does not claim submission confirmation.
+- Resume fit is evidence overlap, not proof of qualification.
+- Login, consent, CAPTCHA, assessments, and custom screening questions require
+  applicant review on the original site.
 
 ## Next improvements
 
 - Saved-job and reviewed/submitted status tracking
-- Optional local encrypted applicant profiles
-- More normalizer and UI regression tests
+- Optional encrypted applicant profiles with explicit retention controls
+- Broader tested skill aliases and multilingual resume parsing
 - Feed caching and scheduled refresh
 - Employer-authorized ATS integrations where credentials and custom questions
   are legitimately available

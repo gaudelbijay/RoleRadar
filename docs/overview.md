@@ -19,13 +19,18 @@ Every ranked card shows the title, company, location, source, posting date,
 available salary and employment type, matching signals, education evidence,
 experience, requirements, description, and original application link.
 
-Country is mandatory and defaults to United States. City is optional and used
-as a preference. Users choose a 1–30 day posting-age limit and an education
+Search type defaults to Jobs; Internships is optional and uses a dedicated
+internship evidence gate. Country is mandatory and defaults to United States. City is optional and used
+as a preference. Without a CV, accepted jobs are newest-first. With resume
+intelligence, eligible jobs are personalized by evidence and recency. Users choose a 1–30 day posting-age limit and an education
 level from High School, Bachelor's, Master's, or PhD. Matching recognizes
 related AI and robotics concepts while keeping meaningful domain evidence.
-Undated and stale results are rejected; accepted jobs are newest-first.
 
-Both dashboards accept PDF, DOCX, TXT, and Markdown CVs and prepare application
+
+Both dashboards accept PDF, DOCX, TXT, and Markdown CVs. Resume evidence is categorized across software, engineering, science, healthcare,
+finance, business, legal, education, creative, operations, trades, and other
+industries. Parallel resume and public-link agents personalize eligible job ordering before
+the dashboards prepare application
 drafts for review. They do not automate platform login, CAPTCHA, assessments,
 unknown screening questions, or final submission.
 

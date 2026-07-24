@@ -21,11 +21,13 @@ interface.
 
 ### Gradio
 
-Gradio provides the visual card layout. Enter the search controls at the top.
-**Agent activity** is collapsed by default; select its heading to show or hide
-live source logs. The application profile, CV upload, job selector, editable
-cover letter, suggested answers, and application review queue are on the same
-page.
+Gradio keeps the application profile and CV upload visible in Gradio's native left sidebar. Search and application tools remain in the main workspace. **Agent
+activity** is collapsed by default; select its heading to show or hide live
+source logs.
+
+Results use equal-height cards with scrollable **Role overview**, **Experience
+sought**, and **What you’ll bring** panels. Long source text therefore does not
+resize neighboring listings.
 
 ### Streamlit
 
@@ -35,6 +37,9 @@ remain available while applications are prepared. A job card changes to
 
 ## Search controls
 
+- Choose **Jobs** or **Internships**. Jobs is the default. Internship mode only
+  accepts listings with internship, intern, co-op, or trainee evidence; Jobs mode
+  excludes those listings.
 - Enter a focused role or domain, such as `AI robotics research scientist`.
 - Select a country. Country is mandatory and defaults to United States.
 - Optionally enter a city. It improves ranking but does not exclude other cities
@@ -42,7 +47,11 @@ remain available while applications are prepared. A job card changes to
 - Choose a maximum posting age from 1–30 days.
 - Choose High School, Bachelor's, Master's, or PhD. PhD is the default.
 
-Matching considers related concepts across the full posting. Robotics searches
+When a CV is uploaded, resume intelligence runs automatically during search.
+Eligible jobs are ordered by estimated resume fit, query relevance, optional
+city preference, and recency. GitHub enrichment is enabled by default; public
+portfolio analysis is opt-in. Matching still considers related concepts across
+the full posting. Robotics searches
 still require meaningful robotics-domain evidence. Undated and stale jobs are
 removed, and remaining results are ordered newest-first.
 

@@ -89,7 +89,7 @@ def build_pdf(query: str, result: dict, output_path: str | Path) -> str:
         Paragraph("Job Search", title),
         Paragraph(
             f"<b>{_text(query)}</b><br/>"
-            f"{_text(location)} · {_text(result.get('education'))} · "
+            f"{_text(result.get('search_type', 'Jobs'))} · {_text(location)} · {_text(result.get('education'))} · "
             f"posted within {result.get('max_age_days')} days",
             subtitle,
         ),
@@ -99,7 +99,7 @@ def build_pdf(query: str, result: dict, output_path: str | Path) -> str:
             Paragraph(f"<b>{result.get('fetched_count', 0)}</b><br/>scanned", body),
             Paragraph(f"<b>{len(jobs)}</b><br/>verified matches", body),
             Paragraph(f"<b>{result.get('max_age_days')}</b><br/>maximum days", body),
-            Paragraph("<b>Newest</b><br/>shown first", body),
+            Paragraph(("<b>Best fit</b><br/>personalized" if result.get("resume_personalized") else "<b>Newest</b><br/>shown first"), body),
         ]],
         colWidths=[1.82 * inch] * 4,
     )
@@ -175,10 +175,17 @@ def build_pdf(query: str, result: dict, output_path: str | Path) -> str:
             ("TOPPADDING", (0, 0), (-1, -1), 7),
             ("BOTTOMPADDING", (0, 0), (-1, -1), 7),
         ]))
+        resume_fit = job.get("resume_fit")
         card = [
             Paragraph(f"{index:02d}  ·  {_text(job.get('title'))}", job_title),
             Paragraph(_text(job.get("company")), company),
             metadata, Spacer(1, 7), salary, Spacer(1, 8),
+            *(
+                [Paragraph(
+                    f"<b>ESTIMATED RESUME FIT: {resume_fit['score']}%</b><br/>"
+                    f"{_text(', '.join(resume_fit.get('matched_skills', [])[:8]) or 'Limited direct skill overlap')}",
+                    body), Spacer(1, 7)] if resume_fit else []
+            ),
             Paragraph("EXPERIENCE & EDUCATION", label),
         ]
         card.extend(
@@ -194,7 +201,7 @@ def build_pdf(query: str, result: dict, output_path: str | Path) -> str:
             card.append(Paragraph("No additional requirement extracted.", body))
         card += [
             Spacer(1, 5), Paragraph("ROLE SNAPSHOT", label),
-            Paragraph(_text(job.get("description", "")[:700]), body),
+            Paragraph(_text(job.get("role_overview", job.get("description", "")[:700])), body),
             Spacer(1, 6),
         ]
         apply_table = Table(

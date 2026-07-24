@@ -18,6 +18,7 @@ Use `./run.sh help` to display every launcher mode.
 - [Installation](installation.md)
 - [Usage: Gradio, Streamlit, and CLI](usage.md)
 - [Application assistant](application-assistant.md)
+- [Resume intelligence and personalized ranking](resume-intelligence.md)
 - [Architecture](architecture.md)
 - [Configuration](configuration.md)
 - [Reports and auditing](reports-and-auditing.md)

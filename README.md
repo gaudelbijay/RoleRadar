@@ -7,9 +7,11 @@ application assistant and downloadable PDF reports.
 
 Searches use concept-aware matching across titles and descriptions. Robotics
 queries retain a robotics-domain gate without requiring one exact phrase.
-Country is mandatory and defaults to the United States; city is an optional
+Search type defaults to Jobs, with an optional Internships mode that filters for
+intern, internship, co-op, or trainee listings. Country is mandatory and defaults
+to the United States; city is an optional
 ranking preference. Users choose the maximum posting age and education level.
-Results are newest-first.
+Without a CV, results are newest-first. With a CV, eligible jobs are ordered by estimated resume fit, query relevance, optional city preference, and recency.
 
 ## Launch a dashboard
 
@@ -40,12 +42,23 @@ LinkedIn/Indeed/Google listings through JobSpy. Glassdoor is provided as a
 targeted search link because its public scraping path is unreliable. Original
 source and employer application URLs are preserved.
 
+## Resume-personalized ranking
+
+An uploaded CV can influence job ordering. A broad occupational taxonomy covers
+356 skills across 21 categories and 32 domains—not only AI or robotics. Parallel
+agents extract resume skills
+and public URLs, enrich public GitHub evidence, recognize LinkedIn URLs without
+scraping them, and optionally analyze protected public portfolio pages—including
+profile websites and repository homepages discovered through GitHub. Country,
+recency, education, and domain requirements remain mandatory.
+
 ## Application workflow
 
 Upload a PDF, DOCX, TXT, or Markdown CV, provide the required applicant fields,
 and prepare one or all matched applications. The assistant produces an
-editable cover-letter draft, reusable profile answers, CV-to-job evidence, and
-a review queue. Final submission happens on the original employer site.
+editable cover-letter draft, reusable profile answers, CV-to-job evidence, and a review queue. When a CV is present, parallel resume and public-link
+agents extract evidence and rerank otherwise eligible jobs by estimated fit.
+Final submission happens on the original employer site.
 Credentials, CAPTCHAs, assessments, consent, and unknown screening questions
 are not automated.
 

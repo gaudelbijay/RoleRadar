@@ -24,6 +24,12 @@ The live public-source pipeline requires no API credentials. JobSpy behavior is
 controlled by the installed `python-jobspy` version and the target sites may
 change or rate-limit responses.
 
+## Resume enrichment
+
+GitHub public metadata works without credentials but is rate-limited. An optional `GITHUB_TOKEN` environment secret increases the GitHub API limit.
+Never store it in the repository. Portfolio fetching is controlled by a
+dashboard opt-in and cannot be enabled globally through configuration.
+
 ## Legacy Ollama settings
 
 `COORDINATOR_MODEL`, `SUBAGENT_MODEL`, `OLLAMA_BASE_URL`,

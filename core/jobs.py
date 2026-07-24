@@ -8,6 +8,9 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timedelta, timezone
 from urllib import error, parse, request
 
+from core.resume_intelligence import score_job_fit
+from core.skill_taxonomy import DOMAIN_ALIASES as BROAD_DOMAIN_CONCEPTS
+
 UA = "jobSearch/1.0 local dashboard"
 STOP = {"a", "an", "and", "are", "as", "at", "for", "from", "in", "is", "job",
         "jobs", "of", "on", "or", "the", "to", "with", "hiring", "requirement",
@@ -34,6 +37,9 @@ CONCEPTS = {
         "advanced degree", "graduate degree",
     },
 }
+# Apply concept-aware matching across the broad occupational domain taxonomy.
+for _domain_name, _domain_terms in BROAD_DOMAIN_CONCEPTS.items():
+    CONCEPTS.setdefault(_domain_name, set()).update(_domain_terms)
 MAX_AGE_DAYS = 10
 COUNTRIES = [
     "United States", "Canada", "United Kingdom", "Germany", "France", "India",
@@ -74,12 +80,54 @@ def _json(url: str):
 
 
 def clean(value) -> str:
+    """Normalize HTML and Markdown-ish source text into readable plain text."""
     if value is None or str(value).strip().lower() in {"nan", "nat", "none", "<na>"}:
         return ""
-    text = str(value or "")
+    text = str(value or "").replace("\r\n", "\n").replace("\r", "\n")
     text = re.sub(r"(?i)<br\s*/?>|</p>|</li>|</h[1-6]>", "\n", text)
     text = html.unescape(re.sub(r"<[^>]+>", " ", text))
-    return re.sub(r"\n\s*\n+", "\n\n", re.sub(r"[ \t]+", " ", text)).strip()
+    # JobSpy sources can return Markdown with every punctuation mark escaped.
+    text = re.sub(r"\\+([\\`*_{}\[\]()#+\-.!&>'])", r"\1", text)
+    text = re.sub(r"\[([^\]]+)\]\(https?://[^)]+\)", r"\1", text)
+    text = re.sub(r"(?m)^\s{0,3}#{1,6}\s*", "", text)
+    text = re.sub(r"(?m)^\s*(?:={3,}|-{3,})\s*$", "", text)
+    text = re.sub(r"(?m)^\s*[*+-]\s+", "• ", text)
+    text = re.sub(r"[*_]{1,3}([^\n*_]+?)[*_]{1,3}", r"\1", text)
+    text = re.sub(r"[ \t]+", " ", text)
+    text = re.sub(r"\n[ \t]+", "\n", text)
+    return re.sub(r"\n\s*\n(?:\s*\n)+", "\n\n", text).strip()
+
+
+def role_overview(description: str, limit: int = 700) -> str:
+    """Return a concise introductory role paragraph without later sections."""
+    text = clean(description)
+    if not text:
+        return "The source did not provide a role overview."
+    section_names = re.compile(
+        r"(?i)^(?:job description|essential responsibilities|responsibilities|"
+        r"position requirements|requirements|qualifications|what you(?:ll| will) do|"
+        r"what you(?:ll| will) bring|about us|benefits|compensation)\s*:?$"
+    )
+    paragraphs = []
+    for paragraph in re.split(r"\n\s*\n|(?=^• )", text, flags=re.M):
+        paragraph = re.sub(r"\s+", " ", paragraph).strip(" •")
+        if not paragraph or section_names.match(paragraph):
+            if paragraphs:
+                break
+            continue
+        if paragraph.lower().startswith(("essential responsibilities", "position requirements")):
+            break
+        if len(paragraph) >= 60:
+            paragraphs.append(paragraph)
+        if paragraphs:
+            break
+    overview = paragraphs[0] if paragraphs else re.sub(r"\s+", " ", text)
+    if len(overview) <= limit:
+        return overview
+    clipped = overview[:limit]
+    sentence_end = max(clipped.rfind(". "), clipped.rfind("! "), clipped.rfind("? "))
+    return (clipped[:sentence_end + 1] if sentence_end >= 220 else clipped.rstrip()) + "…"
+
 
 
 def valid_url(value) -> str:
@@ -195,6 +243,16 @@ def major_search_links(query, location=""):
     ]
 
 
+def _section_heading(line: str) -> bool:
+    normalized = line.lower().strip(" :")
+    return normalized in {
+        "job description", "essential responsibilities", "responsibilities",
+        "position requirements", "requirements", "qualifications",
+        "minimum qualifications", "preferred qualifications", "education",
+        "experience", "benefits", "compensation", "about us",
+    }
+
+
 def requirements(description, limit=8):
     chunks = re.split(r"[\n•]+|(?<=[.!?])\s+", description)
     signals = ("require", "qualification", "experience", "phd", "master", "bachelor",
@@ -203,7 +261,8 @@ def requirements(description, limit=8):
     result = []
     for chunk in chunks:
         line = re.sub(r"\s+", " ", chunk).strip(" -–—:")
-        if 10 <= len(line) <= 280 and any(s in line.lower() for s in signals):
+        if (not _section_heading(line) and 10 <= len(line) <= 280
+                and any(s in line.lower() for s in signals)):
             if line not in result:
                 result.append(line)
         if len(result) == limit:
@@ -213,12 +272,13 @@ def requirements(description, limit=8):
 
 def experience(description, limit=6):
     chunks = re.split(r"[\n•]+|(?<=[.!?])\s+", description)
-    signals = ("experience", "senior", "junior", "entry level",
+    signals = ("experience", "entry level",
                "phd", "master", "bachelor", "degree", "postdoc")
     found = []
     for chunk in chunks:
         line = re.sub(r"\s+", " ", chunk).strip(" -–—:")
-        if 10 <= len(line) <= 280 and any(s in line.lower() for s in signals):
+        if (not _section_heading(line) and 10 <= len(line) <= 280
+                and any(s in line.lower() for s in signals)):
             if line not in found:
                 found.append(line)
         if len(found) == limit:
@@ -272,9 +332,12 @@ def location_matches(location, country=""):
 
 
 def rank(jobs, query, limit=30, country="", city="", max_age_days=MAX_AGE_DAYS,
-         education="PhD", include_diagnostics=False):
+         education="PhD", include_diagnostics=False, resume_profile=None,
+         search_type="Jobs"):
     if education not in EDUCATION_LEVELS:
         raise ValueError(f"Education must be one of: {', '.join(EDUCATION_LEVELS)}")
+    if search_type not in {"Jobs", "Internships"}:
+        raise ValueError("Search type must be Jobs or Internships.")
     words = {w for w in re.findall(r"[a-z0-9+#.]{2,}", query.lower()) if w not in STOP}
     query_text = query.lower()
     requested_concepts = {
@@ -325,6 +388,7 @@ def rank(jobs, query, limit=30, country="", city="", max_age_days=MAX_AGE_DAYS,
             + len(job["matched_keywords"])
             + 3 * len(words & title_tokens)
         )
+        job["role_overview"] = role_overview(job["description"])
         job["requirements"] = requirements(job["description"])
         job["experience"] = experience(job["description"])
         job["salary_display"] = salary_evidence(job)
@@ -334,14 +398,28 @@ def rank(jobs, query, limit=30, country="", city="", max_age_days=MAX_AGE_DAYS,
             if job["_published_dt"] else None
         )
         job["_robotics_match"] = bool(body_tokens & ROBOTICS)
+        internship_terms = {"intern", "internship", "internships", "co-op", "coop", "trainee"}
+        job["internship_evidence"] = bool(title_tokens & internship_terms) or bool(
+            re.search(r"\b(?:intern(?:ship)?s?|co[- ]?op|trainee)\b", title)
+        ) or any(
+            term in str(job.get("job_type") or "").lower() for term in internship_terms
+        )
         job["city_match"] = bool(
             city.strip() and city.strip().lower() in job["location"].lower()
         )
+        job["resume_fit"] = score_job_fit(job, resume_profile)
+        resume_score = job["resume_fit"]["score"] if job["resume_fit"] else 0
+        query_score = min(100, job["match_score"] * 5)
+        job["personalized_score"] = round(
+            0.65 * resume_score + 0.25 * query_score
+            + (10 if job["city_match"] else 0), 1
+        ) if resume_profile else None
     diagnostics = {
         "normalized_unique": len(unique), "missing_requested_concept": 0,
         "weak_domain_evidence": 0,
         "insufficient_keyword_coverage": 0, "missing_or_invalid_date": 0,
-        "outside_age_window": 0, "country_mismatch": 0, "eligible": 0,
+        "outside_age_window": 0, "country_mismatch": 0, "search_type_mismatch": 0,
+        "eligible": 0,
         "requested_concepts": sorted(requested_concepts),
     }
     minimum_coverage = 0.5
@@ -349,6 +427,12 @@ def rank(jobs, query, limit=30, country="", city="", max_age_days=MAX_AGE_DAYS,
     now = datetime.now(timezone.utc)
     for job in unique.values():
         reasons = []
+        wrong_search_type = (
+            search_type == "Internships" and not job["internship_evidence"]
+        ) or (search_type == "Jobs" and job["internship_evidence"])
+        if wrong_search_type:
+            reasons.append("search type mismatch")
+            diagnostics["search_type_mismatch"] += 1
         if not all(c in job["concept_evidence"] for c in requested_concepts):
             reasons.append("missing requested concept")
             diagnostics["missing_requested_concept"] += 1
@@ -374,11 +458,19 @@ def rank(jobs, query, limit=30, country="", city="", max_age_days=MAX_AGE_DAYS,
             diagnostics["eligible"] += 1
         elif job["concept_evidence"]:
             near_matches.append(job)
-    ranked = sorted(
-        matched,
-        key=lambda j: (j["_published_dt"], j["city_match"], j["match_score"]),
-        reverse=True,
-    )[:limit]
+    if resume_profile:
+        ranked = sorted(
+            matched,
+            key=lambda j: (j["personalized_score"], j["_published_dt"],
+                           j["city_match"], j["match_score"]),
+            reverse=True,
+        )[:limit]
+    else:
+        ranked = sorted(
+            matched,
+            key=lambda j: (j["_published_dt"], j["city_match"], j["match_score"]),
+            reverse=True,
+        )[:limit]
     for job in ranked:
         job["published_iso"] = job["_published_dt"].date().isoformat()
         del job["_published_dt"]
@@ -401,7 +493,8 @@ def rank(jobs, query, limit=30, country="", city="", max_age_days=MAX_AGE_DAYS,
 
 
 def search_jobs(query, log=print, max_results=30, country="", city="",
-                max_age_days=MAX_AGE_DAYS, education="PhD"):
+                max_age_days=MAX_AGE_DAYS, education="PhD", resume_profile=None,
+                search_type="Jobs"):
     if not country.strip():
         raise ValueError("Country is required. City is optional.")
     if education not in EDUCATION_LEVELS:
@@ -414,7 +507,7 @@ def search_jobs(query, log=print, max_results=30, country="", city="",
                ("LinkedIn / Indeed / Google",
                 lambda q: top_job_sites(q, country, city, max_age_days))]
     jobs, errors = [], []
-    source_query = f"{query} {education}".strip()
+    source_query = f"{query} {education} {'internship co-op' if search_type == 'Internships' else ''}".strip()
     with ThreadPoolExecutor(max_workers=len(sources)) as pool:
         futures = {}
         for name, fetcher in sources:
@@ -432,35 +525,47 @@ def search_jobs(query, log=print, max_results=30, country="", city="",
     location = ", ".join(part for part in [city.strip(), country.strip()] if part)
     ranked, diagnostics, near_matches = rank(
         jobs, query, max_results, country, city, max_age_days, education,
-        include_diagnostics=True
+        include_diagnostics=True, resume_profile=resume_profile, search_type=search_type
     )
     return {"jobs": ranked, "diagnostics": diagnostics,
             "near_matches": near_matches, "source_errors": errors,
             "search_links": major_search_links(source_query, location),
             "country": country.strip(), "city": city.strip(),
-            "education": education,
+            "education": education, "search_type": search_type,
             "max_age_days": max_age_days,
             "fetched_count": len(jobs),
+            "resume_personalized": bool(resume_profile),
+            "resume_summary": ({
+                "summary": resume_profile.get("summary", ""),
+                "skills": resume_profile.get("skills", [])[:20],
+                "domains": resume_profile.get("domains", [])[:10],
+                "source_statuses": [
+                    {"kind": item.get("kind"), "status": item.get("status")}
+                    for item in resume_profile.get("sources", [])
+                ],
+            } if resume_profile else None),
             "generated_at": datetime.now(timezone.utc).isoformat()}
 
 
 def build_report(query, result):
     jobs = result["jobs"]
+    ranking_label = "Resume fit → recency" if result.get("resume_personalized") else "Newest → oldest"
     lines = [
         "# ✦ jobSearch Intelligence Report",
         "",
         f"> **Search mission:** {query}  ",
+        f"> **Search type:** {result.get('search_type', 'Jobs')}  ",
         f"> **Country:** {result.get('country') or 'Any'} · "
         f"**City:** {result.get('city') or 'Any'}  ",
         f"> **Education:** {result.get('education', 'PhD')}  ",
         f"> **Generated:** {result['generated_at']}  ",
         f"> **Policy:** close concept match · robotics-domain gate · "
-        f"≤ {result['max_age_days']} days old · newest first",
+        f"≤ {result['max_age_days']} days old · {ranking_label}",
         "",
         "| Live listings scanned | Verified matches | Maximum age | Ranking |",
         "|---:|---:|---:|:---|",
         f"| {result['fetched_count']} | {len(jobs)} | "
-        f"{result['max_age_days']} days | Newest → oldest |",
+        f"{result['max_age_days']} days | {ranking_label} |",
         "",
         "## 🎯 Curated opportunities",
         "",
@@ -512,6 +617,12 @@ def build_report(query, result):
             f"**🔑 Relevance signals**  \n"
             f"`{'` · `'.join(job['matched_keywords']) or 'concept match'}`",
             "",
+            *(
+                [f"**🎯 Estimated resume fit**  \n{job['resume_fit']['score']}% — "
+                 + (", ".join(job['resume_fit'].get("matched_skills", [])[:8])
+                    or "limited direct skill overlap"), ""]
+                if job.get("resume_fit") else []
+            ),
             "### 🧠 Experience profile",
             "",
         ]
@@ -526,7 +637,7 @@ def build_report(query, result):
             "",
             "### 📝 Role snapshot",
             "",
-            job["description"][:1800] or "The source did not supply a description.",
+            job.get("role_overview") or "The source did not supply a description.",
             "",
             f"### [Apply on the original listing →]({job['apply_url']})",
             "",
