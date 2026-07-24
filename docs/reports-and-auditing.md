@@ -9,7 +9,7 @@ Each successful search writes timestamped local artifacts:
 - `reports/audit-YYYYMMDD-HHMMSS.json`
 
 Both dashboards offer the styled PDF as the user-facing download. It contains
-ranked openings, source metadata, posting dates, available salary, education
+ranked openings, source metadata, posting dates, available salary, selected minimum-salary evidence, education
 and experience evidence, extracted requirements, description excerpts,
 platform searches, and clickable original application links.
 

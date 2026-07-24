@@ -10,7 +10,7 @@ queries retain a robotics-domain gate without requiring one exact phrase.
 Search type defaults to Jobs, with an optional Internships mode that filters for
 intern, internship, co-op, or trainee listings. Country is mandatory and defaults
 to the United States; city is an optional
-ranking preference. Users choose the maximum posting age and education level.
+ranking preference. Users choose the maximum posting age, education level, and minimum annual salary. The salary threshold defaults to 100,000; setting it to zero includes listings without usable salary evidence.
 Without a CV, results are newest-first. With a CV, eligible jobs are ordered by estimated resume fit, query relevance, optional city preference, and recency.
 
 ## Launch a dashboard
@@ -22,7 +22,7 @@ Choose the interface explicitly:
 ./run.sh streamlit
 ```
 
-- Gradio normally opens at `http://127.0.0.1:7862` and offers styled cards,
+- Gradio normally opens at `http://127.0.0.1:7864` and offers styled cards,
   collapsible agent activity, CV upload, application preparation, and a review
   queue.
 - Streamlit normally opens at `http://localhost:8501` and offers native job

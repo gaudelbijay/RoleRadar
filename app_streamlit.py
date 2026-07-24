@@ -129,6 +129,10 @@ max_age_days = st.slider("Maximum posting age", 1, 30, 10,
                          help="Undated and older jobs are excluded.")
 education = st.selectbox("Education level", EDUCATION_LEVELS,
                          index=EDUCATION_LEVELS.index("PhD"))
+minimum_salary = st.slider(
+    "Minimum annual salary (listing currency)", 0, 300_000, 100_000, 5_000,
+    help="Only listings with a disclosed annualized maximum at or above this amount pass. Set to 0 to include undisclosed salaries.",
+)
 run = st.button("Search Jobs", type="primary")
 
 if run and query.strip() and country.strip():
@@ -152,7 +156,7 @@ if run and query.strip() and country.strip():
                     use_portfolios, log=log)
             result_holder["candidate"] = candidate
             result_holder["result"] = Coordinator(log=log).run(
-                query, country, city, max_age_days, education,
+                query, country, city, max_age_days, education, minimum_salary,
                 resume_profile=candidate, search_type=search_type)
         except Exception as exc:
             result_holder["error"] = exc
@@ -189,11 +193,12 @@ if result:
         st.session_state.application_notice = ""
 
     st.success(f"Found {len(result['jobs'])} ranked jobs from {result['fetched_count']} fetched listings.")
-    metrics = st.columns(4)
+    metrics = st.columns(5)
     metrics[0].metric("Verified matches", len(result["jobs"]))
     metrics[1].metric("Maximum age", f"{result['max_age_days']} days")
     metrics[2].metric("Location", ", ".join(x for x in [result.get("city"), result.get("country")] if x) or "Any")
     metrics[3].metric("Education", result["education"])
+    metrics[4].metric("Minimum salary", "{:,}".format(result["minimum_salary"]))
 
     if result["jobs"]:
         if not application_ready():
@@ -209,8 +214,8 @@ if result:
     else:
         st.error("No verified listing passed this search.")
         diagnostics = result["diagnostics"]
-        st.dataframe({"Gate": ["Wrong search type", "Missing concept", "Weak domain evidence", "Outside age window", "Country mismatch", "Missing date"],
-                      "Rejected": [diagnostics["search_type_mismatch"], diagnostics["missing_requested_concept"], diagnostics["weak_domain_evidence"], diagnostics["outside_age_window"], diagnostics["country_mismatch"], diagnostics["missing_or_invalid_date"]]},
+        st.dataframe({"Gate": ["Salary missing", "Below minimum salary", "Wrong search type", "Missing concept", "Weak domain evidence", "Outside age window", "Country mismatch", "Missing date"],
+                      "Rejected": [diagnostics["salary_missing_or_unusable"], diagnostics["salary_below_minimum"], diagnostics["search_type_mismatch"], diagnostics["missing_requested_concept"], diagnostics["weak_domain_evidence"], diagnostics["outside_age_window"], diagnostics["country_mismatch"], diagnostics["missing_or_invalid_date"]]},
                      hide_index=True, use_container_width=True)
 
     if st.session_state.application_queue:

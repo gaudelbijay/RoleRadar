@@ -13,7 +13,7 @@ show_help() {
 Job Search launcher
 
 Usage:
-  ./run.sh gradio               Launch Gradio (http://127.0.0.1:7862 by default)
+  ./run.sh gradio               Launch Gradio (http://127.0.0.1:7864 by default)
   ./run.sh streamlit            Launch Streamlit (http://localhost:8501)
   ./run.sh cli [options] QUERY  Run the command-line search
   ./run.sh test                 Run the offline pytest suite

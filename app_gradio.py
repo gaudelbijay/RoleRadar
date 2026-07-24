@@ -121,7 +121,9 @@ def render_jobs(jobs, links, diagnostics=None):
     audit = ""
     if not jobs and diagnostics:
         audit = ("<div class='no-match-card'><h3>No verified matches</h3>"
-                 f"<p>Wrong search type: <b>{diagnostics.get('search_type_mismatch', 0)}</b> · "
+                 f"<p>Salary missing: <b>{diagnostics.get('salary_missing_or_unusable', 0)}</b> · "
+                 f"Below minimum: <b>{diagnostics.get('salary_below_minimum', 0)}</b> · "
+                 f"Wrong search type: <b>{diagnostics.get('search_type_mismatch', 0)}</b> · "
                  f"Missing concept: <b>{diagnostics.get('missing_requested_concept', 0)}</b> · "
                  f"Weak domain evidence: <b>{diagnostics.get('weak_domain_evidence', 0)}</b> · "
                  f"Too old: <b>{diagnostics.get('outside_age_window', 0)}</b> · "
@@ -158,7 +160,7 @@ def render_resume_profile(profile):
             f"<b>Public links:</b> {html.escape(sources)}{warning_html}</div>")
 
 
-def run_research(query, search_type, country, city, max_age_days, education, cv_path,
+def run_research(query, search_type, country, city, max_age_days, education, minimum_salary, cv_path,
                  linkedin_url, portfolio_url, use_github, use_portfolios):
     empty_selector = gr.update(choices=[], value=None)
     empty_profile = render_resume_profile(None)
@@ -184,7 +186,7 @@ def run_research(query, search_type, country, city, max_age_days, education, cv_
                     bool(use_portfolios), log=log)
             result_holder["candidate"] = candidate
             result_holder["result"] = Coordinator(log=log).run(
-                query, country, city, int(max_age_days), education,
+                query, country, city, int(max_age_days), education, int(minimum_salary),
                 resume_profile=candidate, search_type=search_type)
         except Exception as exc:
             result_holder["error"] = str(exc)
@@ -343,6 +345,11 @@ with gr.Blocks(title="Job Search") as demo:
         with gr.Row():
             age_box = gr.Slider(1, 30, value=10, step=1, label="Maximum posting age")
             education_box = gr.Dropdown(EDUCATION_LEVELS, value="PhD", label="Education")
+        salary_box = gr.Slider(
+            0, 300_000, value=100_000, step=5_000,
+            label="Minimum annual salary (listing currency)",
+            info="Only jobs with a disclosed annualized maximum at or above this amount are shown. Set to 0 to include undisclosed salaries.",
+        )
         gr.Examples(EXAMPLES, inputs=query_box)
         run_btn = gr.Button("Search Jobs", variant="primary", size="lg")
 
@@ -368,7 +375,7 @@ with gr.Blocks(title="Job Search") as demo:
 
     search_outputs = [log_box, jobs_box, report_box, selected_job, jobs_state, resume_box]
     run_btn.click(run_research,
-                  [query_box, search_type, country_box, city_box, age_box, education_box, cv_file,
+                  [query_box, search_type, country_box, city_box, age_box, education_box, salary_box, cv_file,
                    linkedin, portfolio, use_github, use_portfolios],
                   search_outputs)
     profile_inputs = [cv_file, name, email, phone, applicant_location, linkedin,
@@ -383,5 +390,5 @@ with gr.Blocks(title="Job Search") as demo:
 if __name__ == "__main__":
     demo.launch(
         inbrowser=True, css=CSS,
-        server_port=int(os.environ.get("JOBSEARCH_GRADIO_PORT", "7862")),
+        server_port=int(os.environ.get("JOBSEARCH_GRADIO_PORT", "7864")),
     )

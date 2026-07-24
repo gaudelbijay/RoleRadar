@@ -3,11 +3,11 @@ from datetime import datetime, timedelta, timezone
 import core.jobs as jobs
 
 
-def listing(title, description, *, location="Boston, MA", days_old=0):
+def listing(title, description, *, location="Boston, MA", days_old=0, salary=""):
     published = (datetime.now(timezone.utc) - timedelta(days=days_old)).isoformat()
     return jobs._job(
         "Test", title, title, "Example", location, description,
-        "https://example.com/apply", published,
+        "https://example.com/apply", published, salary,
     )
 
 
@@ -114,12 +114,64 @@ def test_internship_search_uses_focused_major_site_queries(monkeypatch):
     result = jobs.search_jobs(
         "computer vision robotics research engineer",
         country="United States", education="PhD", search_type="Internships",
+        minimum_salary=0,
     )
 
-    assert calls == [
+    assert sorted(calls) == sorted([
         "computer vision robotics research engineer intern",
         "robotics intern",
         "computer vision intern",
-    ]
+    ])
     assert len(result["jobs"]) == 1
     assert result["source_errors"] == []
+
+
+def test_annual_salary_bounds_parse_k_and_hourly_pay():
+    annual = listing(
+        "Robotics Engineer", "PhD robot manipulation and motion planning.",
+        salary="80k - 120k USD yearly",
+    )
+    hourly = listing(
+        "Controls Engineer", "PhD robot manipulation and motion planning.",
+        salary="USD 50 - 60 /hour",
+    )
+
+    assert jobs.annual_salary_bounds(annual) == (80_000, 120_000)
+    assert jobs.annual_salary_bounds(hourly) == (104_000, 124_800)
+
+
+def test_minimum_salary_rejects_missing_and_below_threshold():
+    high = listing(
+        "Robotics Engineer", "PhD robot manipulation and motion planning.",
+        salary="110000 - 140000 USD yearly",
+    )
+    low = listing(
+        "Robotics Research Scientist", "PhD robot manipulation and motion planning.",
+        salary="70000 - 90000 USD yearly",
+    )
+    missing = listing(
+        "Robotics Software Engineer", "PhD robot manipulation and motion planning.",
+    )
+
+    ranked, diagnostics, _ = jobs.rank(
+        [high, low, missing], "robotics", country="United States",
+        education="PhD", search_type="Jobs", minimum_salary=100_000,
+        include_diagnostics=True,
+    )
+
+    assert [job["title"] for job in ranked] == ["Robotics Engineer"]
+    assert diagnostics["salary_below_minimum"] == 1
+    assert diagnostics["salary_missing_or_unusable"] == 1
+
+
+def test_zero_minimum_salary_keeps_undisclosed_jobs():
+    missing = listing(
+        "Robotics Engineer", "PhD robot manipulation and motion planning.",
+    )
+
+    ranked = jobs.rank(
+        [missing], "robotics", country="United States", education="PhD",
+        search_type="Jobs", minimum_salary=0,
+    )
+
+    assert len(ranked) == 1

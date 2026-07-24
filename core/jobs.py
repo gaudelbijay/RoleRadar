@@ -313,6 +313,37 @@ def salary_evidence(job):
     return "Not disclosed in the posting"
 
 
+def annual_salary_bounds(job):
+    """Return disclosed annualized numeric bounds, or None when unusable."""
+    evidence = salary_evidence(job)
+    if not evidence or evidence == "Not disclosed in the posting":
+        return None
+    matches = re.findall(
+        r"(?<![A-Za-z0-9])(?:(?:\x24|\u20ac|\u00a3)\s*)?(\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?)\s*([kK]?)",
+        evidence,
+    )
+    values = []
+    for raw, suffix in matches:
+        value = float(raw.replace(",", ""))
+        if suffix:
+            value *= 1000
+        values.append(value)
+    if not values:
+        return None
+    lowered = evidence.lower()
+    if any(term in lowered for term in ("/hour", "/hr", "per hour", "hourly")):
+        values = [value * 2080 for value in values]
+    elif any(term in lowered for term in ("/month", "per month", "monthly")):
+        values = [value * 12 for value in values]
+    elif any(term in lowered for term in ("/week", "per week", "weekly")):
+        values = [value * 52 for value in values]
+    elif any(term in lowered for term in ("/day", "per day", "daily")):
+        values = [value * 260 for value in values]
+    elif max(values) < 1000:
+        return None
+    return round(min(values)), round(max(values))
+
+
 def published_datetime(value):
     if value in ("", None):
         return None
@@ -352,11 +383,14 @@ def location_matches(location, country=""):
 
 def rank(jobs, query, limit=30, country="", city="", max_age_days=MAX_AGE_DAYS,
          education="PhD", include_diagnostics=False, resume_profile=None,
-         search_type="Jobs"):
+         search_type="Jobs", minimum_salary=0):
     if education not in EDUCATION_LEVELS:
         raise ValueError(f"Education must be one of: {', '.join(EDUCATION_LEVELS)}")
     if search_type not in {"Jobs", "Internships"}:
         raise ValueError("Search type must be Jobs or Internships.")
+    if not 0 <= int(minimum_salary) <= 500_000:
+        raise ValueError("Minimum salary must be between 0 and 500000.")
+    minimum_salary = int(minimum_salary)
     words = {w for w in re.findall(r"[a-z0-9+#.]{2,}", query.lower()) if w not in STOP}
     query_text = query.lower()
     requested_concepts = {}
@@ -427,6 +461,9 @@ def rank(jobs, query, limit=30, country="", city="", max_age_days=MAX_AGE_DAYS,
         job["requirements"] = requirements(job["description"])
         job["experience"] = experience(job["description"])
         job["salary_display"] = salary_evidence(job)
+        salary_bounds = annual_salary_bounds(job)
+        job["salary_min_annual"] = salary_bounds[0] if salary_bounds else None
+        job["salary_max_annual"] = salary_bounds[1] if salary_bounds else None
         job["_published_dt"] = published_datetime(job["published"])
         job["age_days"] = (
             (datetime.now(timezone.utc) - job["_published_dt"]).days
@@ -454,6 +491,7 @@ def rank(jobs, query, limit=30, country="", city="", max_age_days=MAX_AGE_DAYS,
         "weak_domain_evidence": 0,
         "insufficient_keyword_coverage": 0, "missing_or_invalid_date": 0,
         "outside_age_window": 0, "country_mismatch": 0, "search_type_mismatch": 0,
+        "salary_missing_or_unusable": 0, "salary_below_minimum": 0,
         "eligible": 0,
         "requested_concepts": sorted(requested_concepts),
     }
@@ -481,6 +519,12 @@ def rank(jobs, query, limit=30, country="", city="", max_age_days=MAX_AGE_DAYS,
         if not requested_concepts and job["keyword_coverage"] < minimum_coverage:
             reasons.append("insufficient keyword coverage")
             diagnostics["insufficient_keyword_coverage"] += 1
+        if minimum_salary > 0 and job["salary_max_annual"] is None:
+            reasons.append("salary missing or unusable")
+            diagnostics["salary_missing_or_unusable"] += 1
+        elif minimum_salary > 0 and job["salary_max_annual"] < minimum_salary:
+            reasons.append("salary below minimum")
+            diagnostics["salary_below_minimum"] += 1
         if job["_published_dt"] is None:
             reasons.append("missing or invalid date")
             diagnostics["missing_or_invalid_date"] += 1
@@ -533,13 +577,15 @@ def rank(jobs, query, limit=30, country="", city="", max_age_days=MAX_AGE_DAYS,
 
 def search_jobs(query, log=print, max_results=30, country="", city="",
                 max_age_days=MAX_AGE_DAYS, education="PhD", resume_profile=None,
-                search_type="Jobs"):
+                search_type="Jobs", minimum_salary=100_000):
     if not country.strip():
         raise ValueError("Country is required. City is optional.")
     if education not in EDUCATION_LEVELS:
         raise ValueError(f"Education must be one of: {', '.join(EDUCATION_LEVELS)}")
     if not 1 <= int(max_age_days) <= 90:
         raise ValueError("Maximum posting age must be between 1 and 90 days.")
+    if not 0 <= int(minimum_salary) <= 500_000:
+        raise ValueError("Minimum salary must be between 0 and 500000.")
     max_age_days = int(max_age_days)
     has_intern_term = bool(re.search(r"\b(?:intern(?:ship)?s?|co[- ]?op|trainee)\b", query, re.I))
     source_query = (f"{query} intern" if search_type == "Internships" and not has_intern_term
@@ -584,14 +630,15 @@ def search_jobs(query, log=print, max_results=30, country="", city="",
     location = ", ".join(part for part in [city.strip(), country.strip()] if part)
     ranked, diagnostics, near_matches = rank(
         jobs, query, max_results, country, city, max_age_days, education,
-        include_diagnostics=True, resume_profile=resume_profile, search_type=search_type
+        include_diagnostics=True, resume_profile=resume_profile, search_type=search_type,
+        minimum_salary=minimum_salary
     )
     return {"jobs": ranked, "diagnostics": diagnostics,
             "near_matches": near_matches, "source_errors": errors,
             "search_links": major_search_links(source_query, location),
             "country": country.strip(), "city": city.strip(),
             "education": education, "search_type": search_type,
-            "max_age_days": max_age_days,
+            "max_age_days": max_age_days, "minimum_salary": int(minimum_salary),
             "fetched_count": len(jobs),
             "resume_personalized": bool(resume_profile),
             "resume_summary": ({
@@ -617,9 +664,10 @@ def build_report(query, result):
         f"> **Country:** {result.get('country') or 'Any'} · "
         f"**City:** {result.get('city') or 'Any'}  ",
         f"> **Education:** {result.get('education', 'PhD')}  ",
+        f"> **Minimum annual salary:** {result.get('minimum_salary', 0):,}  ",
         f"> **Generated:** {result['generated_at']}  ",
         f"> **Policy:** close concept match · robotics-domain gate · "
-        f"≤ {result['max_age_days']} days old · {ranking_label}",
+        f"≤ {result['max_age_days']} days old · salary ≥ {result.get('minimum_salary', 0):,} · {ranking_label}",
         "",
         "| Live listings scanned | Verified matches | Maximum age | Ranking |",
         "|---:|---:|---:|:---|",
@@ -645,6 +693,8 @@ def build_report(query, result):
             f"| Missing/invalid publication date | {result['diagnostics']['missing_or_invalid_date']} |",
             f"| Outside selected age window | {result['diagnostics']['outside_age_window']} |",
             f"| Country mismatch | {result['diagnostics']['country_mismatch']} |",
+            f"| Salary missing or unusable | {result['diagnostics']['salary_missing_or_unusable']} |",
+            f"| Salary below selected minimum | {result['diagnostics']['salary_below_minimum']} |",
             "",
         ]
         if result["diagnostics"]["missing_requested_concept"] == result["diagnostics"]["normalized_unique"]:
@@ -722,8 +772,9 @@ def build_report(query, result):
         f"{result['max_age_days']} days are excluded.",
         "- Country is mandatory. City is optional and used only as a preference; "
         "jobs elsewhere in the selected country remain eligible.",
-        "- Salary and experience text is quoted or extracted from the source posting; "
-        "missing information is labeled rather than guessed.",
+        f"- Listings must disclose an annualized salary range reaching at least {result.get('minimum_salary', 0):,}; set the filter to 0 to include undisclosed salaries.",
+        "- Hourly, daily, weekly, and monthly pay is annualized with fixed work-year multipliers; currencies are not converted.",
+        "- Salary and experience text is quoted or extracted from the source posting; missing information is labeled rather than guessed.",
         "- Apply links always open the original source. Applications are never "
         "submitted automatically and credentials are never collected.",
     ]

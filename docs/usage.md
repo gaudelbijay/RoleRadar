@@ -45,6 +45,7 @@ remain available while applications are prepared. A job card changes to
 - Optionally enter a city. It improves ranking but does not exclude other cities
   in the selected country.
 - Choose a maximum posting age from 1–30 days.
+- Choose a minimum annual salary from 0–300,000 in the listing currency. The default is 100,000. Listings pass only when their disclosed annualized maximum reaches the threshold; set it to 0 to include undisclosed salaries.
 - Choose High School, Bachelor's, Master's, or PhD. PhD is the default.
 
 When a CV is uploaded, resume intelligence runs automatically during search.
@@ -76,5 +77,5 @@ application links. Application-profile data and CV contents are excluded.
 
 ```bash
 ./run.sh cli --country "United States" --max-age 10 \
-  --education PhD "AI robotics"
+  --education PhD --minimum-salary 100000 "AI robotics"
 ```

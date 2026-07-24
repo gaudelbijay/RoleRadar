@@ -22,7 +22,7 @@ experience, requirements, description, and original application link.
 Search type defaults to Jobs; Internships is optional and uses a dedicated
 internship evidence gate. Country is mandatory and defaults to United States. City is optional and used
 as a preference. Without a CV, accepted jobs are newest-first. With resume
-intelligence, eligible jobs are personalized by evidence and recency. Users choose a 1–30 day posting-age limit and an education
+intelligence, eligible jobs are personalized by evidence and recency. Users choose a 1–30 day posting-age limit, a minimum annual salary defaulting to 100,000, and an education
 level from High School, Bachelor's, Master's, or PhD. Matching recognizes
 related AI and robotics concepts while keeping meaningful domain evidence.
 

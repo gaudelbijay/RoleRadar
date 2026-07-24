@@ -22,12 +22,14 @@ def main() -> None:
                         metavar="DAYS", help="Maximum posting age (1-30)")
     parser.add_argument("--education", choices=EDUCATION_LEVELS, default="PhD",
                         help="Required education evidence (default: PhD)")
+    parser.add_argument("--minimum-salary", type=int, default=100_000,
+                        help="Minimum disclosed annualized salary (default: 100000; 0 disables)")
     args = parser.parse_args()
     query = " ".join(args.query) or DEFAULT_QUERY
     print(f"Query: {query} | Country: {args.country} | City: {args.city or 'Any'}")
     print("=" * 70)
     result = Coordinator(log=print).run(
-        query, args.country, args.city, args.max_age, args.education
+        query, args.country, args.city, args.max_age, args.education, args.minimum_salary
     )
     print("=" * 70)
     print(result["report"])

@@ -9,8 +9,9 @@ Jobicy, Arbeitnow, Remote OK, and a JobSpy path for LinkedIn, Indeed, and Google
 Each adapter normalizes its results into one job schema.
 
 Hard gates run before personalization: query/domain evidence, robotics-role
-evidence when requested, education, country, valid date, and selected posting
-age. City remains a soft preference. Without a resume, eligible results are
+evidence when requested, education, country, valid date, selected posting
+age, and the selected minimum annual salary. Missing salary is rejected whenever
+the salary threshold is above zero. City remains a soft preference. Without a resume, eligible results are
 newest-first.
 
 ## Resume-intelligence pipeline

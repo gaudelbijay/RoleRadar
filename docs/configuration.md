@@ -10,13 +10,13 @@
 ./run.sh help
 ```
 
-Gradio normally binds to `127.0.0.1:7862`; override it with the
+Gradio normally binds to `127.0.0.1:7864`; override it with the
 `JOBSEARCH_GRADIO_PORT` environment variable. Streamlit normally uses
 `localhost:8501`. Each framework prints the actual URL when launched.
 
 ## Search behavior
 
-The dashboards expose country, optional city, maximum posting age, education,
+The dashboards expose country, optional city, maximum posting age, minimum annual salary, education,
 and query controls. Feed timeouts, maximum ranked results, relevance thresholds,
 concept mappings, country aliases, and source selection are defined in
 `core/jobs.py`.

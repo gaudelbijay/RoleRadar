@@ -89,7 +89,7 @@ def build_pdf(query: str, result: dict, output_path: str | Path) -> str:
         Paragraph("Job Search", title),
         Paragraph(
             f"<b>{_text(query)}</b><br/>"
-            f"{_text(result.get('search_type', 'Jobs'))} · {_text(location)} · {_text(result.get('education'))} · "
+            f"{_text(result.get('search_type', 'Jobs'))} · {_text(location)} · {_text(result.get('education'))} · minimum {result.get('minimum_salary', 0):,} in listing currency · "
             f"posted within {result.get('max_age_days')} days",
             subtitle,
         ),
@@ -126,7 +126,9 @@ def build_pdf(query: str, result: dict, output_path: str | Path) -> str:
             Paragraph(
                 f"Missing concept: {diagnostics.get('missing_requested_concept', 0)} · "
                 f"Country mismatch: {diagnostics.get('country_mismatch', 0)} · "
-                f"Outside age: {diagnostics.get('outside_age_window', 0)}",
+                f"Outside age: {diagnostics.get('outside_age_window', 0)} · "
+                f"Salary unavailable: {diagnostics.get('salary_missing_or_unusable', 0)} · "
+                f"Below salary: {diagnostics.get('salary_below_minimum', 0)}",
                 subtitle,
             ),
         ]
