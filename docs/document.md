@@ -21,6 +21,7 @@ Use `./run.sh help` to display every launcher mode.
 - [Resume intelligence and personalized ranking](resume-intelligence.md)
 - [Architecture](architecture.md)
 - [Concepts and target architecture](concepts.md)
+- [Mathematics of semantic job retrieval](math.md)
 - [Configuration](configuration.md)
 - [Reports and auditing](reports-and-auditing.md)
 - [Development guide](development.md)

@@ -16,6 +16,7 @@ Usage:
   ./run.sh gradio               Launch Gradio (http://127.0.0.1:7862 by default)
   ./run.sh streamlit            Launch Streamlit (http://localhost:8501)
   ./run.sh cli [options] QUERY  Run the command-line search
+  ./run.sh test                 Run the offline pytest suite
   ./run.sh help                 Show this help
 HELP
 }
@@ -43,6 +44,9 @@ case "$UI" in
   cli)
     shift
     exec "$VENV_PYTHON" cli.py "$@"
+    ;;
+  test)
+    exec env PYTHONDONTWRITEBYTECODE=1 "$VENV_PYTHON" -m pytest
     ;;
   *)
     echo "Unknown interface: $UI" >&2

@@ -27,6 +27,17 @@ limits. Do not bypass authenticated access controls.
 
 ## Validation
 
+Install development dependencies and run the deterministic test suite:
+
+```bash
+.venv/bin/python -m pip install -r requirements-dev.txt
+./run.sh test
+```
+
+The suite must not call live job sites, GitHub, portfolio pages, or Ollama.
+External responses are mocked so results remain repeatable.
+
+
 Test normalizers with mocked responses. Cover HTML cleanup, deduplication,
 concept relevance, robotics evidence, education gates, location behavior,
 recency, malformed dates, requirement extraction, source failures, URL
