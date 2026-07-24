@@ -22,7 +22,7 @@ Choose the interface explicitly:
 ./run.sh streamlit
 ```
 
-- Gradio normally opens at `http://127.0.0.1:7860` and offers styled cards,
+- Gradio normally opens at `http://127.0.0.1:7862` and offers styled cards,
   collapsible agent activity, CV upload, application preparation, and a review
   queue.
 - Streamlit normally opens at `http://localhost:8501` and offers native job

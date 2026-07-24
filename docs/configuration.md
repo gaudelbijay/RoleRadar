@@ -10,7 +10,8 @@
 ./run.sh help
 ```
 
-Gradio normally binds to `127.0.0.1:7860`; Streamlit normally uses
+Gradio normally binds to `127.0.0.1:7862`; override it with the
+`JOBSEARCH_GRADIO_PORT` environment variable. Streamlit normally uses
 `localhost:8501`. Each framework prints the actual URL when launched.
 
 ## Search behavior

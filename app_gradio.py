@@ -1,5 +1,6 @@
 """Gradio UI for live job search and review-first applications."""
 import html
+import os
 import queue
 import threading
 from pathlib import Path
@@ -380,4 +381,7 @@ with gr.Blocks(title="Job Search") as demo:
                           [prep_status, cover_letter, answers_box, queue_box, queue_state])
 
 if __name__ == "__main__":
-    demo.launch(inbrowser=True, css=CSS)
+    demo.launch(
+        inbrowser=True, css=CSS,
+        server_port=int(os.environ.get("JOBSEARCH_GRADIO_PORT", "7862")),
+    )

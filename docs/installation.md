@@ -25,7 +25,7 @@ python -m pip install -r requirements.txt
 ./run.sh gradio
 ```
 
-Open `http://127.0.0.1:7860` if the browser does not open automatically. If that
+Open `http://127.0.0.1:7862` if the browser does not open automatically. If that
 port is occupied, Gradio may choose the next available port and print it in the
 terminal.
 
