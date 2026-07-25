@@ -3,6 +3,7 @@ import html
 import os
 import queue
 import threading
+import warnings
 from pathlib import Path
 
 import gradio as gr
@@ -63,6 +64,28 @@ CSS = """
 @media(max-width:1050px){.jobs-grid{grid-template-columns:1fr}.profile-panel{position:static}}
 @media(max-width:700px){.job-facts,.evidence-row{grid-template-columns:1fr}.job-card{height:1030px}.evidence-stack{grid-template-rows:230px 320px}.hero h1{font-size:32px}}
 """
+
+
+def _styled_blocks():
+    """Build Gradio 5 Blocks without its premature Gradio 6 CSS warning."""
+    with warnings.catch_warnings():
+        warnings.filterwarnings(
+            "ignore",
+            message=r"The 'css' parameter in the Blocks constructor will be removed.*",
+            category=DeprecationWarning,
+        )
+        return gr.Blocks(title="Job Search", css=CSS)
+
+
+def _examples(inputs):
+    """Create examples while isolating Gradio 5's internal Gradio 6 warning."""
+    with warnings.catch_warnings():
+        warnings.filterwarnings(
+            "ignore",
+            message=r"The 'show_api' parameter in event listeners will be removed.*",
+            category=DeprecationWarning,
+        )
+        return gr.Examples(EXAMPLES, inputs=inputs)
 
 
 def _valid_url(value: object) -> str:
@@ -386,7 +409,7 @@ def prepare_all(cv_path, name, email, phone, location, linkedin, portfolio,
         return f"⚠️ {html.escape(str(exc))}", "", "", render_queue(queue_items or []), queue_items or []
 
 
-with gr.Blocks(title="Job Search", css=CSS) as demo:
+with _styled_blocks() as demo:
     jobs_state, queue_state = gr.State([]), gr.State([])
     with gr.Sidebar(label="Application profile", open=True, width=350,
                     position="left", elem_classes="profile-sidebar"):
@@ -407,7 +430,8 @@ with gr.Blocks(title="Job Search", css=CSS) as demo:
         use_portfolios = gr.Checkbox(
             value=False, label="Analyze public portfolio pages (opt in)")
         resume_box = gr.HTML(
-            "<div class=\"queue-card\">Upload a CV, then search to run resume intelligence.</div>")
+            "<div class=\"queue-card\">Upload a CV, then search to run resume intelligence.</div>",
+            padding=False)
         authorization = gr.Dropdown(
             ["Prefer not to answer", "Yes", "No"], value="Prefer not to answer",
             label="Authorized to work?")
@@ -421,7 +445,7 @@ with gr.Blocks(title="Job Search", css=CSS) as demo:
         gr.Markdown("🔒 Used only in this app session. Never added to reports.",
                     elem_classes="profile-note")
 
-    gr.HTML("<div class='hero'><h1 style='color:#fff!important;-webkit-text-fill-color:#fff!important'>Job Search</h1><p style='color:#fff!important;-webkit-text-fill-color:#fff!important'>Recent, relevant openings with a review-first application assistant.</p></div>")
+    gr.HTML("<div class='hero'><h1 style='color:#fff!important;-webkit-text-fill-color:#fff!important'>Job Search</h1><p style='color:#fff!important;-webkit-text-fill-color:#fff!important'>Recent, relevant openings with a review-first application assistant.</p></div>", padding=False)
     with gr.Column(elem_classes="section-card"):
         gr.Markdown("## Find matching jobs")
         query_box = gr.Textbox(label="What job are you looking for?", lines=2,
@@ -445,14 +469,14 @@ with gr.Blocks(title="Job Search", css=CSS) as demo:
             label="Improve top job summaries with Gemma (Ollama)",
             info="Optional: rewrites only displayed summaries using exact posting evidence.",
         )
-        gr.Examples(EXAMPLES, inputs=query_box)
+        _examples(query_box)
         run_btn = gr.Button("Search Jobs", variant="primary", size="lg")
 
     with gr.Accordion("Agent activity — click to show or hide", open=False):
         log_box = gr.Textbox(label="Live source activity", lines=12, interactive=False)
 
     gr.Markdown("## Live job results")
-    jobs_box = gr.HTML()
+    jobs_box = gr.HTML(padding=False)
     report_box = gr.File(label="Download styled PDF report", visible=False)
 
     with gr.Group(elem_classes="feature-panel"):
@@ -466,11 +490,11 @@ with gr.Blocks(title="Job Search", css=CSS) as demo:
         with gr.Row():
             prepare_btn = gr.Button("Prepare selected application", variant="primary")
             prepare_all_btn = gr.Button("Prepare all results")
-        prep_status = gr.HTML()
+        prep_status = gr.HTML(padding=False)
         cover_letter = gr.Textbox(label="Editable cover-letter draft", lines=12)
-        answers_box = gr.HTML()
+        answers_box = gr.HTML(padding=False)
         with gr.Accordion("Application review queue", open=True):
-            queue_box = gr.HTML("<p>No prepared applications yet.</p>")
+            queue_box = gr.HTML("<p>No prepared applications yet.</p>", padding=False)
 
     with gr.Group(elem_classes="feature-panel"):
         gr.Markdown("## Public technical staff")
@@ -479,7 +503,8 @@ with gr.Blocks(title="Job Search", css=CSS) as demo:
             people_selected_btn = gr.Button("🔎 Research selected company", variant="primary")
             people_all_btn = gr.Button("🏢 Research all result companies", variant="primary")
         company_people_box = gr.HTML(
-            '<div class="empty-research">Technical staff appear automatically after a successful search.</div>'
+            '<div class="empty-research">Technical staff appear automatically after a successful search.</div>',
+            padding=False,
         )
 
     search_outputs = [log_box, jobs_box, report_box, selected_job, jobs_state, resume_box, company_people_box]
