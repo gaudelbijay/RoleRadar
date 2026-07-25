@@ -386,7 +386,7 @@ def prepare_all(cv_path, name, email, phone, location, linkedin, portfolio,
         return f"⚠️ {html.escape(str(exc))}", "", "", render_queue(queue_items or []), queue_items or []
 
 
-with gr.Blocks(title="Job Search") as demo:
+with gr.Blocks(title="Job Search", css=CSS) as demo:
     jobs_state, queue_state = gr.State([]), gr.State([])
     with gr.Sidebar(label="Application profile", open=True, width=350,
                     position="left", elem_classes="profile-sidebar"):
@@ -498,8 +498,13 @@ with gr.Blocks(title="Job Search") as demo:
                           [*profile_inputs, jobs_state, queue_state],
                           [prep_status, cover_letter, answers_box, queue_box, queue_state])
 
-if __name__ == "__main__":
-    demo.launch(
-        inbrowser=True, css=CSS,
+def launch_app():
+    """Launch the configured Gradio application."""
+    return demo.launch(
+        inbrowser=True,
         server_port=int(os.environ.get("JOBSEARCH_GRADIO_PORT", "7864")),
     )
+
+
+if __name__ == "__main__":
+    launch_app()

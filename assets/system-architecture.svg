@@ -1,0 +1,135 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="980" viewBox="0 0 1600 980" role="img" aria-labelledby="title desc">
+  <title id="title">Job Search system architecture</title>
+  <desc id="desc">The job-search pipeline from user inputs through live sources, hard constraints, hybrid ranking, personalization, and user-facing outputs.</desc>
+  <defs>
+    <linearGradient id="background" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#08152d"/>
+      <stop offset="0.55" stop-color="#102c62"/>
+      <stop offset="1" stop-color="#4c2bbf"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#ff7a18"/>
+      <stop offset="1" stop-color="#ffb347"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="150%">
+      <feDropShadow dx="0" dy="10" stdDeviation="14" flood-color="#020817" flood-opacity="0.38"/>
+    </filter>
+    <marker id="arrow" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto">
+      <path d="M 0 0 L 12 6 L 0 12 z" fill="#8fb8ff"/>
+    </marker>
+    <style>
+      .title { font: 700 42px Inter, ui-sans-serif, system-ui, sans-serif; fill: #ffffff; }
+      .subtitle { font: 400 19px Inter, ui-sans-serif, system-ui, sans-serif; fill: #bcd0f5; }
+      .step { font: 700 19px Inter, ui-sans-serif, system-ui, sans-serif; fill: #ffffff; }
+      .body { font: 400 15px Inter, ui-sans-serif, system-ui, sans-serif; fill: #cbd8f2; }
+      .pill { font: 650 14px Inter, ui-sans-serif, system-ui, sans-serif; fill: #16213d; }
+      .number { font: 800 16px Inter, ui-sans-serif, system-ui, sans-serif; fill: #10244d; }
+      .dark-step { font: 700 19px Inter, ui-sans-serif, system-ui, sans-serif; fill: #10244d; }
+      .dark-body { font: 400 15px Inter, ui-sans-serif, system-ui, sans-serif; fill: #4d6082; }
+      .connector { stroke: #8fb8ff; stroke-width: 4; fill: none; marker-end: url(#arrow); }
+      .soft-connector { stroke: #617fb4; stroke-width: 3; fill: none; stroke-dasharray: 8 8; marker-end: url(#arrow); }
+    </style>
+  </defs>
+
+  <rect width="1600" height="980" rx="32" fill="url(#background)"/>
+  <circle cx="1440" cy="80" r="230" fill="#6e46ed" opacity="0.18"/>
+  <circle cx="140" cy="900" r="260" fill="#0aa8cf" opacity="0.12"/>
+
+  <text x="80" y="82" class="title">Job Search · System Architecture</text>
+  <text x="80" y="118" class="subtitle">Constraint-first retrieval with hybrid ranking, resume personalization, and evidence-backed outputs</text>
+
+  <!-- Inputs -->
+  <g filter="url(#shadow)">
+    <rect x="80" y="170" width="310" height="218" rx="24" fill="#122b57" stroke="#446ba8" stroke-width="2"/>
+    <circle cx="122" cy="214" r="20" fill="url(#accent)"/>
+    <text x="116" y="220" class="number">1</text>
+    <text x="158" y="221" class="step">Search mission</text>
+    <text x="112" y="264" class="body">Query and job / internship mode</text>
+    <text x="112" y="294" class="body">Country and optional city</text>
+    <text x="112" y="324" class="body">Age, education, and salary</text>
+    <text x="112" y="354" class="body">Optional CV and public profile links</text>
+  </g>
+
+  <!-- Sources -->
+  <g filter="url(#shadow)">
+    <rect x="505" y="170" width="420" height="218" rx="24" fill="#122b57" stroke="#446ba8" stroke-width="2"/>
+    <circle cx="547" cy="214" r="20" fill="url(#accent)"/>
+    <text x="541" y="220" class="number">2</text>
+    <text x="583" y="221" class="step">Parallel public sources</text>
+    <rect x="537" y="254" width="106" height="34" rx="17" fill="#d8e8ff"/><text x="554" y="276" class="pill">Remotive</text>
+    <rect x="653" y="254" width="86" height="34" rx="17" fill="#d8e8ff"/><text x="671" y="276" class="pill">Jobicy</text>
+    <rect x="749" y="254" width="136" height="34" rx="17" fill="#d8e8ff"/><text x="766" y="276" class="pill">Arbeitnow</text>
+    <rect x="537" y="304" width="116" height="34" rx="17" fill="#d8e8ff"/><text x="554" y="326" class="pill">Remote OK</text>
+    <rect x="663" y="304" width="222" height="34" rx="17" fill="#d8e8ff"/><text x="680" y="326" class="pill">JobSpy public paths</text>
+    <text x="537" y="366" class="body">Normalize · validate URLs · deduplicate</text>
+  </g>
+
+  <!-- Gates -->
+  <g filter="url(#shadow)">
+    <rect x="1040" y="170" width="480" height="218" rx="24" fill="#122b57" stroke="#ff9b42" stroke-width="3"/>
+    <circle cx="1082" cy="214" r="20" fill="url(#accent)"/>
+    <text x="1076" y="220" class="number">3</text>
+    <text x="1118" y="221" class="step">Mandatory eligibility gates</text>
+    <text x="1072" y="264" class="body">✓ Recent and dated listing</text>
+    <text x="1072" y="294" class="body">✓ Country and search-type match</text>
+    <text x="1072" y="324" class="body">✓ Domain, education, and concept evidence</text>
+    <text x="1072" y="354" class="body">✓ Salary threshold when enabled</text>
+  </g>
+
+  <path d="M390 279 C440 279 455 279 495 279" class="connector"/>
+  <path d="M925 279 C970 279 990 279 1030 279" class="connector"/>
+
+  <!-- Ranking region -->
+  <g filter="url(#shadow)">
+    <rect x="200" y="490" width="1200" height="260" rx="28" fill="#0d2147" stroke="#5278b6" stroke-width="2"/>
+    <text x="242" y="535" class="step">4 · Layered relevance ranking</text>
+
+    <rect x="242" y="570" width="220" height="116" rx="20" fill="#17386d" stroke="#6da1ef" stroke-width="2"/>
+    <text x="273" y="612" class="step">BM25</text>
+    <text x="273" y="643" class="body">Exact keyword evidence</text>
+    <text x="273" y="668" class="body">Production default</text>
+
+    <rect x="506" y="570" width="230" height="116" rx="20" fill="#17386d" stroke="#6da1ef" stroke-width="2"/>
+    <text x="535" y="612" class="step">Semantic cosine</text>
+    <text x="535" y="643" class="body">Local embeddings</text>
+    <text x="535" y="668" class="body">Concept similarity</text>
+
+    <rect x="780" y="570" width="210" height="116" rx="20" fill="#17386d" stroke="#9d83ff" stroke-width="2"/>
+    <text x="816" y="612" class="step">RRF fusion</text>
+    <text x="816" y="643" class="body">BM25 + semantic</text>
+    <text x="816" y="668" class="body">Rank-level fusion</text>
+
+    <rect x="1034" y="570" width="324" height="116" rx="20" fill="#17386d" stroke="#9d83ff" stroke-width="2"/>
+    <text x="1064" y="612" class="step">CrossEncoder · top 50</text>
+    <text x="1064" y="643" class="body">Optional pairwise reranking</text>
+    <text x="1064" y="668" class="body">Bounded local inference</text>
+
+    <path d="M462 628 L496 628" class="soft-connector"/>
+    <path d="M736 628 L770 628" class="soft-connector"/>
+    <path d="M990 628 L1024 628" class="soft-connector"/>
+  </g>
+
+  <path d="M1280 388 C1280 440 1170 455 1080 480" class="connector"/>
+
+  <!-- Outputs -->
+  <g filter="url(#shadow)">
+    <rect x="80" y="840" width="292" height="86" rx="22" fill="#f7faff"/>
+    <text x="112" y="877" class="dark-step">Resume fit</text>
+    <text x="112" y="905" class="dark-body">Skills · role · city · recency</text>
+
+    <rect x="420" y="840" width="292" height="86" rx="22" fill="#f7faff"/>
+    <text x="452" y="877" class="dark-step">Job results</text>
+    <text x="452" y="905" class="dark-body">Cards · evidence · apply links</text>
+
+    <rect x="760" y="840" width="292" height="86" rx="22" fill="#f7faff"/>
+    <text x="792" y="877" class="dark-step">Reports</text>
+    <text x="792" y="905" class="dark-body">Styled PDF · local JSON audit</text>
+
+    <rect x="1100" y="840" width="420" height="86" rx="22" fill="#f7faff"/>
+    <text x="1132" y="877" class="dark-step">Review-first applications</text>
+    <text x="1132" y="905" class="dark-body">Draft · verify · submit on employer site</text>
+  </g>
+
+  <path d="M800 750 L800 824" class="connector"/>
+  <text x="823" y="798" class="subtitle">5 · User-facing results</text>
+</svg>
