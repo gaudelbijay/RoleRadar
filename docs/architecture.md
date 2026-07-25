@@ -14,6 +14,11 @@ age, and the selected minimum annual salary. Missing salary is rejected whenever
 the salary threshold is above zero. City remains a soft preference. Without a resume, eligible results are
 newest-first.
 
+The optional `core.gemma_summaries` stage runs after eligibility and ranking.
+It can replace presentation-only overview, experience, and requirement fields
+for a bounded displayed prefix. Structured output and exact source excerpts are
+validated before mutation; each failed listing retains deterministic text.
+
 ## Resume-intelligence pipeline
 
 `core.skill_taxonomy.py` defines the broad cross-industry skill, domain, role,
@@ -51,5 +56,6 @@ matched skills can explain personalized order, while raw CV text, public-page
 text, and applicant contact fields are excluded. Reports live under `reports/`
 and are ignored by Git.
 
-The legacy Ollama/Gemma research modules remain in the repository but are not
-used by the live job-search or resume-intelligence path.
+The legacy general-research agents remain separate from live retrieval. The
+live path uses Ollama only when the user explicitly enables evidence-validated
+Gemma summaries.

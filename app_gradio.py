@@ -165,7 +165,8 @@ def render_resume_profile(profile):
 
 
 def run_research(query, search_type, country, city, max_age_days, education, minimum_salary, cv_path,
-                 linkedin_url, portfolio_url, use_github, use_portfolios):
+                 linkedin_url, portfolio_url, use_github, use_portfolios,
+                 use_gemma_summaries):
     empty_selector = gr.update(choices=[], value=None)
     empty_profile = render_resume_profile(None)
     empty_report = gr.update(value=None, visible=False)
@@ -192,7 +193,8 @@ def run_research(query, search_type, country, city, max_age_days, education, min
             result_holder["candidate"] = candidate
             result_holder["result"] = Coordinator(log=log).run(
                 query, country, city, int(max_age_days), education, int(minimum_salary),
-                resume_profile=candidate, search_type=search_type)
+                resume_profile=candidate, search_type=search_type,
+                use_gemma_summaries=bool(use_gemma_summaries))
         except Exception as exc:
             result_holder["error"] = str(exc)
         finally:
@@ -438,6 +440,11 @@ with gr.Blocks(title="Job Search") as demo:
             label="Minimum annual salary (listing currency)",
             info="Only jobs with a disclosed annualized maximum at or above this amount are shown. Set to 0 to include undisclosed salaries.",
         )
+        use_gemma_summaries = gr.Checkbox(
+            value=False,
+            label="Improve top job summaries with Gemma (Ollama)",
+            info="Optional: rewrites only displayed summaries using exact posting evidence.",
+        )
         gr.Examples(EXAMPLES, inputs=query_box)
         run_btn = gr.Button("Search Jobs", variant="primary", size="lg")
 
@@ -449,20 +456,13 @@ with gr.Blocks(title="Job Search") as demo:
     report_box = gr.File(label="Download styled PDF report", visible=False)
 
     with gr.Group(elem_classes="feature-panel"):
-        gr.Markdown("## Choose a result")
-        selected_job = gr.Dropdown(label="Job opening", choices=[], info="This selection is used for company research and application preparation.")
-
-    with gr.Group(elem_classes="feature-panel"):
-        gr.Markdown("## Public technical staff")
-        gr.Markdown("Read official public company pages on demand. A person is marked as a hiring manager only when a public source says so explicitly.")
-        with gr.Row():
-            people_selected_btn = gr.Button("🔎 Research selected company", variant="primary")
-            people_all_btn = gr.Button("🏢 Research all result companies", variant="primary")
-        company_people_box = gr.HTML('<div class="empty-research">Select a job above, then choose a research action.</div>')
-
-    with gr.Group(elem_classes="feature-panel"):
         gr.Markdown("## Prepare applications")
-        gr.Markdown("Prepare a truthful draft for the selected result, then review it before opening the employer’s site.")
+        gr.Markdown("Choose a job, prepare a truthful draft, and review it before opening the employer’s site.")
+        selected_job = gr.Dropdown(
+            label="Choose a job",
+            choices=[],
+            info="The selected opening is used by the prepare button directly below.",
+        )
         with gr.Row():
             prepare_btn = gr.Button("Prepare selected application", variant="primary")
             prepare_all_btn = gr.Button("Prepare all results")
@@ -472,10 +472,20 @@ with gr.Blocks(title="Job Search") as demo:
         with gr.Accordion("Application review queue", open=True):
             queue_box = gr.HTML("<p>No prepared applications yet.</p>")
 
+    with gr.Group(elem_classes="feature-panel"):
+        gr.Markdown("## Public technical staff")
+        gr.Markdown("Review public technical staff and company recruiting information after preparing applications.")
+        with gr.Row():
+            people_selected_btn = gr.Button("🔎 Research selected company", variant="primary")
+            people_all_btn = gr.Button("🏢 Research all result companies", variant="primary")
+        company_people_box = gr.HTML(
+            '<div class="empty-research">Technical staff appear automatically after a successful search.</div>'
+        )
+
     search_outputs = [log_box, jobs_box, report_box, selected_job, jobs_state, resume_box, company_people_box]
     run_btn.click(run_research,
                   [query_box, search_type, country_box, city_box, age_box, education_box, salary_box, cv_file,
-                   linkedin, portfolio, use_github, use_portfolios],
+                   linkedin, portfolio, use_github, use_portfolios, use_gemma_summaries],
                   search_outputs)
     people_selected_btn.click(research_selected_ui, [selected_job, jobs_state], company_people_box)
     people_all_btn.click(research_all_ui, jobs_state, company_people_box)

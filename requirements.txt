@@ -1,7 +1,8 @@
-gradio>=5.0.0
+gradio>=5.0.0,<6.0.0
 python-jobspy>=1.1.82
 python-docx>=1.1.2
 pypdf>=5.0.0
 reportlab>=4.2.0
 streamlit>=1.38.0
 beautifulsoup4>=4.12.0
+rank-bm25>=0.2.2

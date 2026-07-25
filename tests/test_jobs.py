@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta, timezone
 
+import pytest
 import core.jobs as jobs
 
 
@@ -123,6 +124,7 @@ def test_internship_search_uses_focused_major_site_queries(monkeypatch):
         "computer vision intern",
     ])
     assert len(result["jobs"]) == 1
+    assert result["ranking_mode"] == "bm25"
     assert result["source_errors"] == []
 
 
@@ -175,3 +177,174 @@ def test_zero_minimum_salary_keeps_undisclosed_jobs():
     )
 
     assert len(ranked) == 1
+
+
+def test_bm25_failure_falls_back_to_deterministic_ranking(monkeypatch):
+    first = listing(
+        "Robotics Engineer", "PhD robot manipulation and motion planning.",
+        days_old=0,
+    )
+    second = listing(
+        "Robotics Scientist", "PhD robotics perception and autonomous systems.",
+        days_old=1,
+    )
+
+    def unavailable(_query, _jobs):
+        raise RuntimeError("not installed")
+
+    monkeypatch.setattr(jobs, "bm25_score_jobs", unavailable)
+    ranked, diagnostics, _ = jobs.rank(
+        [first, second], "robotics", country="United States", education="PhD",
+        ranking_mode="bm25", include_diagnostics=True,
+    )
+
+    assert [item["title"] for item in ranked] == ["Robotics Engineer", "Robotics Scientist"]
+    assert diagnostics["ranking_mode_requested"] == "bm25"
+    assert diagnostics["ranking_mode_active"] == "deterministic"
+    assert diagnostics["ranking_fallback"] is True
+
+
+def test_unknown_ranking_mode_is_rejected():
+    with pytest.raises(ValueError, match="Ranking mode"):
+        jobs.rank([], "robotics", ranking_mode="mystery")
+
+
+def test_semantic_mode_orders_eligible_jobs_by_cosine_score(monkeypatch):
+    recent = listing(
+        "Robotics Engineer", "PhD robot manipulation and motion planning.",
+        days_old=0,
+    )
+    older = listing(
+        "Robotics Scientist", "PhD robotics perception and autonomous systems.",
+        days_old=1,
+    )
+    monkeypatch.setattr(jobs, "semantic_score_jobs", lambda _query, _jobs: [0.1, 0.9])
+
+    ranked, diagnostics, _ = jobs.rank(
+        [recent, older], "robotics", country="United States", education="PhD",
+        ranking_mode="semantic", include_diagnostics=True,
+    )
+
+    assert [item["title"] for item in ranked] == ["Robotics Scientist", "Robotics Engineer"]
+    assert ranked[0]["semantic_score"] == pytest.approx(0.9)
+    assert diagnostics["ranking_mode_active"] == "semantic"
+    assert diagnostics["ranking_fallback"] is False
+
+
+def test_semantic_failure_falls_back_to_bm25(monkeypatch):
+    first = listing(
+        "Robotics Engineer", "PhD robot manipulation and motion planning.",
+        days_old=0,
+    )
+    second = listing(
+        "Robotics Scientist", "PhD robotics perception and autonomous systems.",
+        days_old=1,
+    )
+
+    def unavailable(_query, _jobs):
+        raise RuntimeError("model unavailable")
+
+    monkeypatch.setattr(jobs, "semantic_score_jobs", unavailable)
+    monkeypatch.setattr(jobs, "bm25_score_jobs", lambda _query, _jobs: [0.2, 0.8])
+    ranked, diagnostics, _ = jobs.rank(
+        [first, second], "robotics", country="United States", education="PhD",
+        ranking_mode="semantic", include_diagnostics=True,
+    )
+
+    assert [item["title"] for item in ranked] == ["Robotics Scientist", "Robotics Engineer"]
+    assert diagnostics["ranking_mode_requested"] == "semantic"
+    assert diagnostics["ranking_mode_active"] == "bm25"
+    assert diagnostics["ranking_fallback"] is True
+    assert diagnostics["ranking_fallback_from"] == "semantic"
+
+
+def test_hybrid_mode_fuses_bm25_and_semantic_rank_positions(monkeypatch):
+    first = listing("Robotics Engineer", "PhD robot manipulation and motion planning.", days_old=0)
+    consensus = listing("Robotics Scientist", "PhD robotics perception and autonomous systems.", days_old=1)
+    third = listing("Robotics Developer", "PhD robot controls, manipulation, and ROS.", days_old=2)
+    monkeypatch.setattr(jobs, "bm25_score_jobs", lambda _query, _jobs: [0.9, 0.8, 0.7])
+    monkeypatch.setattr(jobs, "semantic_score_jobs", lambda _query, _jobs: [0.1, 0.9, 0.8])
+
+    ranked, diagnostics, _ = jobs.rank(
+        [first, consensus, third], "robotics", country="United States",
+        education="PhD", ranking_mode="hybrid", include_diagnostics=True,
+    )
+
+    assert ranked[0]["title"] == "Robotics Scientist"
+    assert ranked[0]["bm25_rank"] == 2
+    assert ranked[0]["semantic_rank"] == 1
+    assert ranked[0]["rrf_score"] == pytest.approx(1 / 62 + 1 / 61)
+    assert diagnostics["ranking_mode_active"] == "hybrid"
+    assert diagnostics["rrf_k"] == 60
+    assert diagnostics["ranking_fallback"] is False
+
+
+def test_hybrid_mode_uses_available_ranker_when_semantic_fails(monkeypatch):
+    first = listing("Robotics Engineer", "PhD robot manipulation and motion planning.", days_old=0)
+    second = listing("Robotics Scientist", "PhD robotics perception and autonomous systems.", days_old=1)
+
+    def unavailable(_query, _jobs):
+        raise RuntimeError("model unavailable")
+
+    monkeypatch.setattr(jobs, "semantic_score_jobs", unavailable)
+    monkeypatch.setattr(jobs, "bm25_score_jobs", lambda _query, _jobs: [0.1, 0.9])
+    ranked, diagnostics, _ = jobs.rank(
+        [first, second], "robotics", country="United States", education="PhD",
+        ranking_mode="hybrid", include_diagnostics=True,
+    )
+
+    assert ranked[0]["title"] == "Robotics Scientist"
+    assert diagnostics["ranking_mode_requested"] == "hybrid"
+    assert diagnostics["ranking_mode_active"] == "bm25"
+    assert diagnostics["ranking_fallback"] is True
+    assert diagnostics["ranking_fallback_from"] == "semantic"
+    assert diagnostics["rrf_k"] is None
+
+
+def test_rerank_mode_cross_encodes_only_retrieved_candidates(monkeypatch):
+    first = listing("Robotics Engineer", "PhD robot manipulation and motion planning.", days_old=0)
+    second = listing("Robotics Scientist", "PhD robotics perception and autonomous systems.", days_old=1)
+    third = listing("Robotics Developer", "PhD robot controls, manipulation, and ROS.", days_old=2)
+    monkeypatch.setattr(jobs, "bm25_score_jobs", lambda _query, _jobs: [0.9, 0.8, 0.7])
+    monkeypatch.setattr(jobs, "semantic_score_jobs", lambda _query, _jobs: [0.9, 0.8, 0.7])
+    seen = []
+
+    def cross_scores(_query, candidates):
+        seen.extend(item["title"] for item in candidates)
+        return [0.1, 0.9, 0.2]
+
+    monkeypatch.setattr(jobs, "cross_encoder_score_jobs", cross_scores)
+    ranked, diagnostics, _ = jobs.rank(
+        [first, second, third], "robotics", country="United States",
+        education="PhD", ranking_mode="rerank", include_diagnostics=True,
+    )
+
+    assert seen == ["Robotics Engineer", "Robotics Scientist", "Robotics Developer"]
+    assert ranked[0]["title"] == "Robotics Scientist"
+    assert ranked[0]["cross_encoder_score"] == pytest.approx(0.9)
+    assert ranked[0]["rrf_score"] is not None
+    assert diagnostics["ranking_mode_active"] == "rerank"
+    assert diagnostics["rerank_candidates"] == 3
+    assert diagnostics["ranking_fallback"] is False
+
+
+def test_cross_encoder_failure_keeps_hybrid_order(monkeypatch):
+    first = listing("Robotics Engineer", "PhD robot manipulation and motion planning.", days_old=0)
+    second = listing("Robotics Scientist", "PhD robotics perception and autonomous systems.", days_old=1)
+    monkeypatch.setattr(jobs, "bm25_score_jobs", lambda _query, _jobs: [0.9, 0.8])
+    monkeypatch.setattr(jobs, "semantic_score_jobs", lambda _query, _jobs: [0.9, 0.8])
+
+    def unavailable(_query, _jobs):
+        raise RuntimeError("reranker unavailable")
+
+    monkeypatch.setattr(jobs, "cross_encoder_score_jobs", unavailable)
+    ranked, diagnostics, _ = jobs.rank(
+        [first, second], "robotics", country="United States", education="PhD",
+        ranking_mode="rerank", include_diagnostics=True,
+    )
+
+    assert ranked[0]["title"] == "Robotics Engineer"
+    assert diagnostics["ranking_mode_requested"] == "rerank"
+    assert diagnostics["ranking_mode_active"] == "hybrid"
+    assert diagnostics["ranking_fallback"] is True
+    assert diagnostics["ranking_fallback_from"] == "cross_encoder"

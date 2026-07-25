@@ -3,12 +3,19 @@ from __future__ import annotations
 
 import html
 import json
+import os
 import re
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timedelta, timezone
 from urllib import error, parse, request
 
+from core.bm25_ranker import score_jobs as bm25_score_jobs
+from core.cross_encoder_ranker import (
+    MAX_RERANK_CANDIDATES, score_jobs as cross_encoder_score_jobs,
+)
 from core.resume_intelligence import score_job_fit
+from core.rrf_ranker import reciprocal_rank_fusion
+from core.semantic_ranker import score_jobs as semantic_score_jobs
 from core.skill_taxonomy import DOMAIN_ALIASES as BROAD_DOMAIN_CONCEPTS
 
 UA = "jobSearch/1.0 local dashboard"
@@ -386,7 +393,10 @@ def location_matches(location, country=""):
 
 def rank(jobs, query, limit=30, country="", city="", max_age_days=MAX_AGE_DAYS,
          education="PhD", include_diagnostics=False, resume_profile=None,
-         search_type="Jobs", minimum_salary=0):
+         search_type="Jobs", minimum_salary=0, ranking_mode="deterministic"):
+    ranking_mode = str(ranking_mode or "deterministic").strip().lower()
+    if ranking_mode not in {"deterministic", "bm25", "semantic", "hybrid", "rerank"}:
+        raise ValueError("Ranking mode must be deterministic, bm25, semantic, hybrid, or rerank.")
     if education not in EDUCATION_LEVELS:
         raise ValueError(f"Education must be one of: {', '.join(EDUCATION_LEVELS)}")
     if search_type not in {"Jobs", "Internships"}:
@@ -445,12 +455,21 @@ def rank(jobs, query, limit=30, country="", city="", max_age_days=MAX_AGE_DAYS,
         strong_robotics_evidence = set(robotics_evidence) & STRONG_ROBOTICS
         technical_title = bool(re.search(
             r"\b(?:engineer|engineering|scientist|research|developer|software|hardware|"
-            r"computer vision|machine learning|perception|controls?|autonomy|technical)\b",
+            r"computer vision|machine learning|perception|controls?|autonomy)\b",
             title,
         ))
-        job["robotics_role_evidence"] = (
+        title_has_autonomy = bool(re.search(r"\bautonom(?:y|ous)\b", title))
+        nontechnical_title = bool(re.search(
+            r"\b(?:marketing|content|social media|communications?|sales|recruit(?:er|ing)|"
+            r"human resources|business development)\b",
+            title,
+        ))
+        job["robotics_role_evidence"] = not nontechnical_title and (
             title_has_robotics
-            or (technical_title and len(strong_robotics_evidence) >= 2)
+            or (technical_title and (
+                len(strong_robotics_evidence) >= 2
+                or (title_has_autonomy and len(strong_robotics_evidence) >= 1)
+            ))
         )
         job["keyword_coverage"] = (
             len(job["matched_keywords"]) / len(words) if words else 1.0
@@ -497,6 +516,10 @@ def rank(jobs, query, limit=30, country="", city="", max_age_days=MAX_AGE_DAYS,
         "salary_missing_or_unusable": 0, "salary_below_minimum": 0,
         "eligible": 0,
         "requested_concepts": sorted(requested_concepts),
+        "ranking_mode_requested": ranking_mode,
+        "ranking_mode_active": ranking_mode,
+        "ranking_fallback": False,
+        "ranking_fallback_from": "",
     }
     minimum_coverage = 0.5
     matched, near_matches = [], []
@@ -544,10 +567,110 @@ def rank(jobs, query, limit=30, country="", city="", max_age_days=MAX_AGE_DAYS,
             diagnostics["eligible"] += 1
         elif job["concept_evidence"]:
             near_matches.append(job)
+    for job in matched:
+        job["bm25_score"] = None
+        job["semantic_score"] = None
+        job["rrf_score"] = None
+        job["bm25_rank"] = None
+        job["semantic_rank"] = None
+        job["cross_encoder_score"] = None
+        job["rerank_selected"] = False
+        job["ranker_score"] = 0.0
+
+    requested_mode = ranking_mode
+    semantic_scores = None
+    bm25_scores = None
+    failed_rankers = []
+
+    if requested_mode in {"semantic", "hybrid", "rerank"}:
+        try:
+            semantic_scores = semantic_score_jobs(query, matched)
+            for job, score in zip(matched, semantic_scores):
+                job["semantic_score"] = round(score, 6)
+        except RuntimeError:
+            failed_rankers.append("semantic")
+
+    if (requested_mode in {"bm25", "hybrid", "rerank"}
+            or (requested_mode == "semantic" and semantic_scores is None)):
+        try:
+            bm25_scores = bm25_score_jobs(query, matched)
+            for job, score in zip(matched, bm25_scores):
+                job["bm25_score"] = round(score, 6)
+        except RuntimeError:
+            failed_rankers.append("bm25")
+
+    if requested_mode in {"hybrid", "rerank"} and semantic_scores is not None and bm25_scores is not None:
+        fused_scores, positions = reciprocal_rank_fusion(
+            [bm25_scores, semantic_scores], k=60,
+        )
+        for index, job in enumerate(matched):
+            job["bm25_rank"] = positions[0][index]
+            job["semantic_rank"] = positions[1][index]
+            job["rrf_score"] = round(fused_scores[index], 9)
+            job["ranker_score"] = job["rrf_score"]
+        ranking_mode = "hybrid"
+    elif semantic_scores is not None and requested_mode in {"semantic", "hybrid", "rerank"}:
+        ranking_mode = "semantic"
+        for job in matched:
+            job["ranker_score"] = job["semantic_score"]
+    elif bm25_scores is not None:
+        ranking_mode = "bm25"
+        for job in matched:
+            job["ranker_score"] = job["bm25_score"]
+    else:
+        ranking_mode = "deterministic"
+
+    if requested_mode == "rerank" and ranking_mode != "deterministic":
+        rerank_candidates = sorted(
+            matched,
+            key=lambda job: (job["ranker_score"], job["_published_dt"],
+                             job["city_match"], job["match_score"]),
+            reverse=True,
+        )[:MAX_RERANK_CANDIDATES]
+        try:
+            cross_scores = cross_encoder_score_jobs(query, rerank_candidates)
+            for job, score in zip(rerank_candidates, cross_scores):
+                job["cross_encoder_score"] = round(score, 6)
+                job["rerank_selected"] = True
+            ranking_mode = "rerank"
+        except RuntimeError:
+            failed_rankers.append("cross_encoder")
+    else:
+        rerank_candidates = []
+    diagnostics["ranking_mode_active"] = ranking_mode
+    diagnostics["ranking_fallback"] = bool(failed_rankers) or ranking_mode != requested_mode
+    diagnostics["ranking_fallback_from"] = ",".join(failed_rankers)
+    diagnostics["rrf_k"] = 60 if any(job["rrf_score"] is not None for job in matched) else None
+    diagnostics["rerank_candidates"] = len(rerank_candidates)
+
     if resume_profile:
         ranked = sorted(
             matched,
-            key=lambda j: (j["personalized_score"], j["_published_dt"],
+            key=lambda j: (
+                j["personalized_score"],
+                j["rerank_selected"] if ranking_mode == "rerank" else True,
+                (j["cross_encoder_score"] if ranking_mode == "rerank"
+                 and j["cross_encoder_score"] is not None else j["ranker_score"]),
+                j["ranker_score"], j["_published_dt"],
+                j["city_match"], j["match_score"],
+            ),
+            reverse=True,
+        )[:limit]
+    elif ranking_mode == "rerank":
+        ranked = sorted(
+            matched,
+            key=lambda j: (
+                j["rerank_selected"],
+                j["cross_encoder_score"] if j["cross_encoder_score"] is not None else float("-inf"),
+                j["ranker_score"], j["_published_dt"],
+                j["city_match"], j["match_score"],
+            ),
+            reverse=True,
+        )[:limit]
+    elif ranking_mode in {"bm25", "semantic", "hybrid"}:
+        ranked = sorted(
+            matched,
+            key=lambda j: (j["ranker_score"], j["_published_dt"],
                            j["city_match"], j["match_score"]),
             reverse=True,
         )[:limit]
@@ -580,7 +703,12 @@ def rank(jobs, query, limit=30, country="", city="", max_age_days=MAX_AGE_DAYS,
 
 def search_jobs(query, log=print, max_results=30, country="", city="",
                 max_age_days=MAX_AGE_DAYS, education="PhD", resume_profile=None,
-                search_type="Jobs", minimum_salary=100_000):
+                search_type="Jobs", minimum_salary=100_000, ranking_mode=None):
+    ranking_mode = str(ranking_mode or os.environ.get(
+        "JOBSEARCH_RANKER", "bm25"
+    )).strip().lower()
+    if ranking_mode not in {"deterministic", "bm25", "semantic", "hybrid", "rerank"}:
+        raise ValueError("Ranking mode must be deterministic, bm25, semantic, hybrid, or rerank.")
     if not country.strip():
         raise ValueError("Country is required. City is optional.")
     if education not in EDUCATION_LEVELS:
@@ -634,13 +762,14 @@ def search_jobs(query, log=print, max_results=30, country="", city="",
     ranked, diagnostics, near_matches = rank(
         jobs, query, max_results, country, city, max_age_days, education,
         include_diagnostics=True, resume_profile=resume_profile, search_type=search_type,
-        minimum_salary=minimum_salary
+        minimum_salary=minimum_salary, ranking_mode=ranking_mode,
     )
     return {"jobs": ranked, "diagnostics": diagnostics,
             "near_matches": near_matches, "source_errors": errors,
             "search_links": major_search_links(source_query, location),
             "country": country.strip(), "city": city.strip(),
             "education": education, "search_type": search_type,
+            "ranking_mode": diagnostics["ranking_mode_active"],
             "max_age_days": max_age_days, "minimum_salary": int(minimum_salary),
             "fetched_count": len(jobs),
             "resume_personalized": bool(resume_profile),
@@ -658,7 +787,14 @@ def search_jobs(query, log=print, max_results=30, country="", city="",
 
 def build_report(query, result):
     jobs = result["jobs"]
-    ranking_label = "Resume fit → recency" if result.get("resume_personalized") else "Newest → oldest"
+    ranking_label = (
+        "Resume fit → recency" if result.get("resume_personalized")
+        else "BM25 relevance → recency" if result.get("ranking_mode") == "bm25"
+        else "Semantic relevance → recency" if result.get("ranking_mode") == "semantic"
+        else "Hybrid BM25 + semantic RRF → recency" if result.get("ranking_mode") == "hybrid"
+        else "CrossEncoder reranked hybrid candidates" if result.get("ranking_mode") == "rerank"
+        else "Newest → oldest"
+    )
     lines = [
         "# ✦ jobSearch Intelligence Report",
         "",

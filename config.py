@@ -7,6 +7,8 @@ COORDINATOR_MODEL = os.environ.get("COORDINATOR_MODEL", "gemma4")
 SUBAGENT_MODEL = os.environ.get("SUBAGENT_MODEL", "gemma4")
 OLLAMA_BASE_URL = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434").rstrip("/")
 OLLAMA_TIMEOUT_SEC = int(os.environ.get("OLLAMA_TIMEOUT_SEC", "300"))
+JOB_SUMMARY_MODEL = os.environ.get("JOB_SUMMARY_MODEL", "gemma3:4b")
+JOB_SUMMARY_MAX_TOKENS = int(os.environ.get("JOB_SUMMARY_MAX_TOKENS", "900"))
 
 # Parallelism: how many sub-agents research at the same time
 MAX_PARALLEL_AGENTS = int(os.environ.get("MAX_PARALLEL_AGENTS", "4"))

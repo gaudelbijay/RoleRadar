@@ -134,6 +134,10 @@ minimum_salary = st.slider(
     "Minimum annual salary (listing currency)", 0, 300_000, 100_000, 5_000,
     help="Only listings with a disclosed annualized maximum at or above this amount pass. Set to 0 to include undisclosed salaries.",
 )
+use_gemma_summaries = st.checkbox(
+    "Improve top job summaries with Gemma (Ollama)", value=False,
+    help="Optional. Uses exact posting evidence and never changes job eligibility or ranking.",
+)
 run = st.button("Search Jobs", type="primary")
 
 if run and query.strip() and country.strip():
@@ -158,7 +162,8 @@ if run and query.strip() and country.strip():
             result_holder["candidate"] = candidate
             result_holder["result"] = Coordinator(log=log).run(
                 query, country, city, max_age_days, education, minimum_salary,
-                resume_profile=candidate, search_type=search_type)
+                resume_profile=candidate, search_type=search_type,
+                use_gemma_summaries=use_gemma_summaries)
         except Exception as exc:
             result_holder["error"] = exc
         finally:

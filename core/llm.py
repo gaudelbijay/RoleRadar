@@ -37,7 +37,7 @@ def _generate(prompt: str, system: str, model: str, max_tokens: int) -> str:
     except error.URLError as exc:
         raise RuntimeError(
             f"Cannot connect to Ollama at {config.OLLAMA_BASE_URL}. "
-            "Start Ollama and run `ollama pull gemma4`."
+            f"Start Ollama and run `ollama pull {model}`."
         ) from exc
 
     text = body.get("response")
@@ -123,9 +123,9 @@ def mock_report(query: str, findings: list[dict]) -> str:
 def parse_json_block(raw: str):
     """Parse JSON out of an LLM response, stripping code fences if present."""
     cleaned = raw.replace("```json", "").replace("```", "").strip()
-    start = cleaned.find("[")
-    if start == -1:
-        start = cleaned.find("{")
+    starts = [position for position in (cleaned.find("{"), cleaned.find("["))
+              if position >= 0]
+    start = min(starts) if starts else -1
     candidate = cleaned[start:] if start != -1 else cleaned
     # Gemma may add an explanation after valid JSON. raw_decode accepts the
     # first complete JSON value instead of rejecting the trailing text.

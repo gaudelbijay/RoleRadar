@@ -26,6 +26,7 @@ import config
 from agents.subagent import run_subagent
 from core import llm
 from core.jobs import build_report, search_jobs
+from core.gemma_summaries import enrich_jobs
 from core.pdf_report import build_pdf
 
 REPORTS_DIR = Path(__file__).resolve().parent.parent / "reports"
@@ -134,7 +135,8 @@ class Coordinator:
     # ------------------------------------------------------------------ #
     def run(self, query: str, country: str = "United States", city: str = "",
             max_age_days: int = 10, education: str = "PhD",
-            minimum_salary: int = 100_000, resume_profile: dict | None = None, search_type: str = "Jobs") -> dict:
+            minimum_salary: int = 100_000, resume_profile: dict | None = None,
+            search_type: str = "Jobs", use_gemma_summaries: bool = False) -> dict:
         """Search live public job feeds and produce ranked dashboard results."""
         if not country.strip():
             raise ValueError("Country is required. City is optional.")
@@ -146,6 +148,10 @@ class Coordinator:
             resume_profile=resume_profile, search_type=search_type
         )
         self.log(f"[coordinator] ranking {search_result['fetched_count']} fetched listings...")
+        search_result["gemma_summaries"] = enrich_jobs(
+            search_result["jobs"], query, log=self.log,
+            enabled=bool(use_gemma_summaries),
+        )
         report = build_report(query, search_result)
 
         stamp = started.strftime("%Y%m%d-%H%M%S")

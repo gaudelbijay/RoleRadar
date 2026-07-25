@@ -2,10 +2,7 @@
 
 [Documentation index](document.md)
 
-This document explains the mathematics planned for local semantic embeddings,
-cosine retrieval, BM25, Reciprocal Rank Fusion, and optional CrossEncoder
-reranking. It is a design reference. Semantic ranking is not connected to the
-live application yet.
+This document explains the mathematics for BM25, local semantic embeddings, cosine retrieval, Reciprocal Rank Fusion, and bounded CrossEncoder reranking. BM25 is the lightweight live default. Semantic, RRF hybrid, and CrossEncoder modes are connected as evaluated opt-in modes through `JOBSEARCH_RANKER=semantic`, `JOBSEARCH_RANKER=hybrid`, and `JOBSEARCH_RANKER=rerank`.
 
 ## 1. Retrieval problem
 
@@ -816,18 +813,16 @@ neural score may bypass mandatory gates.
 
 ## 21. Mathematical implementation sequence
 
-1. Define immutable document and result contracts.
-2. Build controlled semantic job text.
-3. Add a lazy local bi-encoder adapter.
-4. Validate vector dimensions and finite values.
-5. L2-normalize query and document vectors.
-6. Compute batched cosine similarity through matrix multiplication.
-7. Add deterministic ranking and tie-breaking.
-8. Add content-hash caching.
-9. Establish an offline relevance benchmark.
-10. Add BM25 and RRF only after individual behavior is measured.
-11. Evaluate a CrossEncoder on the fused top candidates.
-12. Connect the pipeline in shadow mode before changing visible results.
+1. Preserve mandatory country, age, search-type, salary, education, and safety gates.
+2. Measure the deterministic baseline with versioned relevance judgments.
+3. Score already-eligible documents with field-weighted BM25.
+4. Expand the benchmark until Precision@5 and Precision@10 are meaningful over larger candidate sets.
+5. Add a lazy local bi-encoder adapter.
+6. Validate vector dimensions and finite values.
+7. L2-normalize query and document vectors.
+8. Compute batched in-memory cosine similarity.
+9. Add deterministic RRF and tie-breaking.
+10. Evaluate a CrossEncoder only on fused top candidates.
+11. Connect optional components in shadow or feature-flag mode before changing defaults.
 
-The live application must remain functional through deterministic ranking when
-any optional semantic component is unavailable.
+The live application must remain functional through deterministic ranking when any optional ranking component is unavailable. No persistent embedding cache or database is part of the active design.

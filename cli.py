@@ -24,12 +24,17 @@ def main() -> None:
                         help="Required education evidence (default: PhD)")
     parser.add_argument("--minimum-salary", type=int, default=100_000,
                         help="Minimum disclosed annualized salary (default: 100000; 0 disables)")
+    parser.add_argument(
+        "--gemma-summaries", action="store_true",
+        help="Use local Ollama Gemma for evidence-validated summaries of displayed jobs",
+    )
     args = parser.parse_args()
     query = " ".join(args.query) or DEFAULT_QUERY
     print(f"Query: {query} | Country: {args.country} | City: {args.city or 'Any'}")
     print("=" * 70)
     result = Coordinator(log=print).run(
-        query, args.country, args.city, args.max_age, args.education, args.minimum_salary
+        query, args.country, args.city, args.max_age, args.education,
+        args.minimum_salary, use_gemma_summaries=args.gemma_summaries,
     )
     print("=" * 70)
     print(result["report"])

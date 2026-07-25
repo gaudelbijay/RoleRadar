@@ -8,7 +8,7 @@
 - Internet access for public job sources
 - macOS, Linux, or another environment capable of running the Bash launcher
 
-No paid API key or Ollama model is required for the live job-search path.
+No paid API key or Ollama model is required for search, filtering, or ranking.
 
 ## Install
 
@@ -18,6 +18,34 @@ python3 -m venv .venv
 source .venv/bin/activate
 python -m pip install -r requirements.txt
 ```
+
+## Optional semantic ranking
+
+BM25 is installed by default. To evaluate local Sentence Transformer ranking, install the separate neural dependencies:
+
+```bash
+python -m pip install -r requirements-semantic.txt
+JOBSEARCH_RANKER=semantic ./run.sh gradio
+# Or combine semantic and BM25 rankings with RRF:
+JOBSEARCH_RANKER=hybrid ./run.sh gradio
+# Or rerank at most 50 retrieved candidates with a local CrossEncoder:
+JOBSEARCH_RANKER=rerank ./run.sh gradio
+```
+
+The first semantic search downloads the compact model. No API key is required, and embeddings are not persisted.
+
+## Optional Gemma summaries
+
+Install Ollama separately, then download the default local summary model:
+
+```bash
+ollama pull gemma3:4b
+```
+
+Start Ollama and enable **Improve top job summaries with Gemma (Ollama)** in a
+dashboard, or pass `--gemma-summaries` to the CLI. The option is off by default;
+search continues with deterministic summaries when Ollama is absent or a model
+response fails evidence validation.
 
 ## Launch Gradio
 

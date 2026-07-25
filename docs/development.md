@@ -37,6 +37,13 @@ Install development dependencies and run the deterministic test suite:
 The suite must not call live job sites, GitHub, portfolio pages, or Ollama.
 External responses are mocked so results remain repeatable.
 
+GitHub Actions runs the same suite on every push and pull request using Python
+3.11. The workflow installs only the base and development requirements, checks
+dependency consistency, compiles Python sources, validates all local Markdown
+links through pytest, and checks whitespace. Optional semantic model packages
+and Ollama weights are deliberately excluded; their interfaces are tested with
+local fakes and deterministic fallbacks.
+
 
 Test normalizers with mocked responses. Cover HTML cleanup, deduplication,
 concept relevance, robotics evidence, education gates, location behavior,

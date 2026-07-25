@@ -1,0 +1,52 @@
+{
+  "version": 1,
+  "description": "De-identified synthetic relevance judgments for local ranking regression tests.",
+  "baseline": {
+    "ranker": "deterministic_recency_v1",
+    "precision_at_5": 0.722222,
+    "precision_at_10": 0.722222,
+    "recall_at_50": 1.0,
+    "ndcg_at_10": 0.706427
+  },
+  "cases": [
+    {
+      "name": "robotics_perception_jobs",
+      "query": "robotics perception engineer",
+      "filters": {"country": "United States", "education": "PhD", "search_type": "Jobs", "max_age_days": 10, "minimum_salary": 0},
+      "candidates": [
+        {"id": "rp1", "title": "Robotics Perception Engineer", "description": "PhD robotics engineer building robot perception, SLAM, motion planning, and autonomous manipulation systems.", "location": "Boston, MA", "days_old": 0, "relevance": 3},
+        {"id": "rp2", "title": "Autonomy and Perception Scientist", "description": "PhD research role developing computer vision, perception, robots, localization, and autonomous systems.", "location": "Pittsburgh, PA", "days_old": 1, "relevance": 3},
+        {"id": "rp3", "title": "Robotics Software Engineer", "description": "PhD robotics role using perception, ROS, motion planning, controls, and manipulation.", "location": "Austin, TX", "days_old": 2, "relevance": 2},
+        {"id": "rp7", "title": "Robotics Program Manager", "description": "PhD program role coordinating robotics perception, SLAM, manipulation, and autonomous-systems engineering teams.", "location": "Boston, MA", "days_old": 0, "relevance": 0},
+        {"id": "rp4", "title": "Technical Marketing Manager", "description": "PhD preferred. Create campaigns about robotics, perception, SLAM, manipulation, and autonomous systems.", "location": "New York, NY", "days_old": 0, "relevance": 0, "must_reject": true},
+        {"id": "rp5", "title": "Robotics Perception Engineer", "description": "PhD robotics engineer building perception, SLAM, manipulation, and autonomous systems.", "location": "Berlin, Germany", "days_old": 0, "relevance": 3, "must_reject": true},
+        {"id": "rp6", "title": "Robot Learning Scientist", "description": "PhD robotics scientist applying perception and reinforcement learning to robot manipulation and planning.", "location": "Seattle, WA", "days_old": 18, "relevance": 3, "must_reject": true}
+      ]
+    },
+    {
+      "name": "backend_python_jobs",
+      "query": "python fastapi backend",
+      "filters": {"country": "United States", "education": "Bachelor's", "search_type": "Jobs", "max_age_days": 10, "minimum_salary": 0},
+      "candidates": [
+        {"id": "be1", "title": "Senior Python Backend Engineer", "description": "Bachelor's degree. Build Python and FastAPI backend services, APIs, PostgreSQL systems, and distributed applications.", "location": "Remote, United States", "days_old": 0, "relevance": 3},
+        {"id": "be2", "title": "Backend Software Engineer", "description": "Bachelor's degree. Develop backend platforms with Python, FastAPI, Docker, testing, and cloud infrastructure.", "location": "Chicago, IL", "days_old": 1, "relevance": 3},
+        {"id": "be3", "title": "Python Application Developer", "description": "Bachelor's degree. Maintain Python backend applications and integrate FastAPI endpoints.", "location": "Denver, CO", "days_old": 2, "relevance": 2},
+        {"id": "be6", "title": "Python API Technical Writer", "description": "Bachelor's degree. Write documentation about Python, FastAPI, and backend APIs for software customers.", "location": "Portland, OR", "days_old": 0, "relevance": 0},
+        {"id": "be4", "title": "Senior Python Backend Engineer", "description": "Bachelor's degree. Build Python FastAPI backend systems.", "location": "Toronto, Canada", "days_old": 0, "relevance": 3, "must_reject": true},
+        {"id": "be5", "title": "Backend Engineering Intern", "description": "Bachelor's program. Python FastAPI backend internship.", "location": "Boston, MA", "days_old": 0, "relevance": 0, "must_reject": true}
+      ]
+    },
+    {
+      "name": "robotics_internships",
+      "query": "robotics research",
+      "filters": {"country": "United States", "education": "PhD", "search_type": "Internships", "max_age_days": 10, "minimum_salary": 0},
+      "candidates": [
+        {"id": "ri1", "title": "Robotics Research Intern", "description": "Currently pursuing a graduate degree. Research robot manipulation, motion planning, controls, and autonomous systems.", "location": "San Francisco, CA", "days_old": 0, "relevance": 3},
+        {"id": "ri2", "title": "Robot Learning Intern", "description": "Doctoral candidate researching reinforcement learning, robotics, manipulation, perception, and motion planning.", "location": "Boston, MA", "days_old": 1, "relevance": 3},
+        {"id": "ri5", "title": "Robotics Program Management Intern", "description": "Graduate student internship coordinating robotics research schedules for manipulation, controls, planning, and autonomous-systems teams.", "location": "Boston, MA", "days_old": 0, "relevance": 0},
+        {"id": "ri3", "title": "Robotics Research Engineer", "description": "PhD robotics role focused on manipulation and autonomous systems.", "location": "Seattle, WA", "days_old": 0, "relevance": 0, "must_reject": true},
+        {"id": "ri4", "title": "Robotics Content Intern", "description": "Graduate student internship creating social content about robot manipulation, planning, controls, and autonomous systems.", "location": "Austin, TX", "days_old": 0, "relevance": 0, "must_reject": true}
+      ]
+    }
+  ]
+}
