@@ -46,6 +46,16 @@ The live public-source pipeline requires no API credentials. JobSpy behavior is
 controlled by the installed `python-jobspy` version and the target sites may
 change or rate-limit responses.
 
+## Adaptive source scheduling
+
+The dashboards and CLI enable the RL source scheduler by default. It runs bounded
+source waves and can stop launching additional agents after sufficient verified
+yield. Uncheck the dashboard option or use `--no-rl-scheduler` in the CLI for
+full parallel dispatch. `JOBSEARCH_SOURCE_SCHEDULER=all` selects full dispatch
+for direct core usage; policy path,
+agent limits, result targets, and deadlines are documented in
+[Adaptive RL source scheduler](rl-scheduler.md).
+
 ## Resume enrichment
 
 GitHub public metadata works without credentials but is rate-limited. An optional `GITHUB_TOKEN` environment secret increases the GitHub API limit.
@@ -71,10 +81,3 @@ The default model is `gemma3:4b`. Configure the bounded local step with:
 
 At most two summaries run concurrently. Failure, timeout, invalid JSON, or
 unsupported claims trigger a per-listing deterministic fallback.
-
-## General-research Ollama settings
-
-`COORDINATOR_MODEL`, `SUBAGENT_MODEL`, `OLLAMA_BASE_URL`,
-`OLLAMA_TIMEOUT_SEC`, and `MAX_PARALLEL_AGENTS` in `config.py` belong to the
-legacy general-research implementation. `JOB_SUMMARY_MODEL` independently
-controls the optional live job-summary stage.

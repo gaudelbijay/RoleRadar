@@ -189,7 +189,7 @@ def render_resume_profile(profile):
 
 def run_research(query, search_type, country, city, max_age_days, education, minimum_salary, cv_path,
                  linkedin_url, portfolio_url, use_github, use_portfolios,
-                 use_gemma_summaries):
+                 use_gemma_summaries, use_rl_scheduler):
     empty_selector = gr.update(choices=[], value=None)
     empty_profile = render_resume_profile(None)
     empty_report = gr.update(value=None, visible=False)
@@ -217,7 +217,8 @@ def run_research(query, search_type, country, city, max_age_days, education, min
             result_holder["result"] = Coordinator(log=log).run(
                 query, country, city, int(max_age_days), education, int(minimum_salary),
                 resume_profile=candidate, search_type=search_type,
-                use_gemma_summaries=bool(use_gemma_summaries))
+                use_gemma_summaries=bool(use_gemma_summaries),
+                use_rl_scheduler=bool(use_rl_scheduler))
         except Exception as exc:
             result_holder["error"] = str(exc)
         finally:
@@ -469,6 +470,11 @@ with _styled_blocks() as demo:
             label="Improve top job summaries with Gemma (Ollama)",
             info="Optional: rewrites only displayed summaries using exact posting evidence.",
         )
+        use_rl_scheduler = gr.Checkbox(
+            value=True,
+            label="Optimize source agents with RL scheduler",
+            info="Default: adaptively stops launching new sources when verified yield is sufficient.",
+        )
         _examples(query_box)
         run_btn = gr.Button("Search Jobs", variant="primary", size="lg")
 
@@ -510,7 +516,8 @@ with _styled_blocks() as demo:
     search_outputs = [log_box, jobs_box, report_box, selected_job, jobs_state, resume_box, company_people_box]
     run_btn.click(run_research,
                   [query_box, search_type, country_box, city_box, age_box, education_box, salary_box, cv_file,
-                   linkedin, portfolio, use_github, use_portfolios, use_gemma_summaries],
+                   linkedin, portfolio, use_github, use_portfolios,
+                   use_gemma_summaries, use_rl_scheduler],
                   search_outputs)
     people_selected_btn.click(research_selected_ui, [selected_job, jobs_state], company_people_box)
     people_all_btn.click(research_all_ui, jobs_state, company_people_box)

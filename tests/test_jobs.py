@@ -2,6 +2,7 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 import core.jobs as jobs
+from rl_scheduler.replay import load_scenario
 
 
 def listing(title, description, *, location="Boston, MA", days_old=0, salary=""):
@@ -126,6 +127,46 @@ def test_internship_search_uses_focused_major_site_queries(monkeypatch):
     assert len(result["jobs"]) == 1
     assert result["ranking_mode"] == "bm25"
     assert result["source_errors"] == []
+
+
+def test_default_rl_scheduler_stops_after_verified_yield_and_can_record(monkeypatch, tmp_path):
+    calls = []
+    result_job = listing(
+        "Robotics Engineer",
+        "PhD robotics engineer building robot manipulation and motion planning systems.",
+    )
+
+    def productive(name):
+        def fetch(*_args, **_kwargs):
+            calls.append(name)
+            item = result_job.copy()
+            item["id"] = f"Test:{name}"
+            return [item]
+        return fetch
+
+    monkeypatch.setattr(jobs, "remotive", productive("remotive"))
+    monkeypatch.setattr(jobs, "jobicy", productive("jobicy"))
+    monkeypatch.setattr(jobs, "arbeitnow", productive("arbeitnow"))
+    monkeypatch.setattr(jobs, "remoteok", productive("remoteok"))
+    monkeypatch.setattr(jobs, "top_job_sites", productive("major"))
+    monkeypatch.setenv("JOBSEARCH_RL_TARGET_RESULTS", "1")
+    monkeypatch.setenv("JOBSEARCH_RL_MIN_RESULTS", "1")
+
+    result = jobs.search_jobs(
+        "robotics engineer", country="United States", education="PhD",
+        minimum_salary=0, record_scenario_path=tmp_path / "scenario.json",
+    )
+
+    assert set(calls) == {"major", "remotive"}
+    assert result["source_scheduler"]["mode"] == "rl"
+    assert result["source_scheduler"]["launched_agents"] == 2
+    assert result["source_scheduler"]["skipped_agents"] == 3
+    assert result["scheduler_trace"]
+    recorded = load_scenario(tmp_path / "scenario.json")
+    assert recorded["query"] == "robotics engineer"
+    assert {source["name"] for source in recorded["sources"]} == {
+        "LinkedIn / Indeed / Google", "Remotive"
+    }
 
 
 def test_annual_salary_bounds_parse_k_and_hourly_pay():

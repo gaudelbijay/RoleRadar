@@ -138,6 +138,10 @@ use_gemma_summaries = st.checkbox(
     "Improve top job summaries with Gemma (Ollama)", value=False,
     help="Optional. Uses exact posting evidence and never changes job eligibility or ranking.",
 )
+use_rl_scheduler = st.checkbox(
+    "Optimize source agents with RL scheduler", value=True,
+    help="Adaptively stops launching new sources after enough verified results are available.",
+)
 run = st.button("Search Jobs", type="primary")
 
 if run and query.strip() and country.strip():
@@ -163,7 +167,8 @@ if run and query.strip() and country.strip():
             result_holder["result"] = Coordinator(log=log).run(
                 query, country, city, max_age_days, education, minimum_salary,
                 resume_profile=candidate, search_type=search_type,
-                use_gemma_summaries=use_gemma_summaries)
+                use_gemma_summaries=use_gemma_summaries,
+                use_rl_scheduler=use_rl_scheduler)
         except Exception as exc:
             result_holder["error"] = exc
         finally:

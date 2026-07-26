@@ -19,6 +19,8 @@ Use `./run.sh help` to display every launcher mode.
 - [Usage: Gradio, Streamlit, and CLI](usage.md)
 - [Application assistant](application-assistant.md)
 - [Resume intelligence and personalized ranking](resume-intelligence.md)
+- [Adaptive RL source scheduler](rl-scheduler.md)
+- [Mathematics of the RL source scheduler](rl-mathematics.md)
 - [Architecture](architecture.md)
 - [Mathematics of semantic job retrieval](math.md)
 - [Configuration](configuration.md)

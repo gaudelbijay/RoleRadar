@@ -1,0 +1,36 @@
+{
+  "version": 1,
+  "scenario": "computer vision robotics research engineer | United States | PhD | 10 days | salary >= 100000",
+  "captured_at": "2026-07-25",
+  "source": "sanitized local all-source recording",
+  "full_parallel": {
+    "modeled_latency_seconds": 96.4108,
+    "source_calls": 5,
+    "fetched_jobs": 302,
+    "verified_jobs": 12,
+    "unique_companies": 10
+  },
+  "deterministic_adaptive": {
+    "modeled_latency_seconds": 96.4108,
+    "source_calls": 2,
+    "fetched_jobs": 164,
+    "verified_jobs": 12,
+    "unique_companies": 10,
+    "ranked_list_identical_to_full_parallel": true
+  },
+  "changes": {
+    "latency_percent": 0.0,
+    "source_calls_percent": -60.0,
+    "fetched_jobs_percent": -45.7,
+    "verified_jobs_percent": 0.0
+  },
+  "quality_labels_available": false,
+  "trained_policy_loaded": false,
+  "promotion_gate_passed": false,
+  "promotion_blockers": [
+    "No independent relevance labels",
+    "No trained Q-policy",
+    "No latency improvement in this scenario",
+    "Only one real replay scenario"
+  ]
+}

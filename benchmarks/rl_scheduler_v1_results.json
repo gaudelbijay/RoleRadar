@@ -1,0 +1,42 @@
+{
+  "version": 1,
+  "trials": 10,
+  "scenarios": {
+    "early_yield_sufficient": {
+      "all_sources": {
+        "p50_seconds": 0.0853,
+        "p95_seconds": 0.0863,
+        "mean_calls": 5,
+        "mean_jobs": 24,
+        "mean_skipped": 0
+      },
+      "rl_scheduler": {
+        "p50_seconds": 0.0457,
+        "p95_seconds": 0.0458,
+        "mean_calls": 2,
+        "mean_jobs": 15,
+        "mean_skipped": 3
+      },
+      "p50_latency_change_percent": -46.42,
+      "source_call_change_percent": -60.0
+    },
+    "early_yield_insufficient": {
+      "all_sources": {
+        "p50_seconds": 0.0859,
+        "p95_seconds": 0.0863,
+        "mean_calls": 5,
+        "mean_jobs": 15,
+        "mean_skipped": 0
+      },
+      "rl_scheduler": {
+        "p50_seconds": 0.194,
+        "p95_seconds": 0.1963,
+        "mean_calls": 5,
+        "mean_jobs": 15,
+        "mean_skipped": 0
+      },
+      "p50_latency_change_percent": 125.84,
+      "source_call_change_percent": 0.0
+    }
+  }
+}

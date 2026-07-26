@@ -28,6 +28,14 @@ def main() -> None:
         "--gemma-summaries", action="store_true",
         help="Use local Ollama Gemma for evidence-validated summaries of displayed jobs",
     )
+    parser.add_argument(
+        "--rl-scheduler", action=argparse.BooleanOptionalAction, default=True,
+        help="Adaptively schedule source agents (default; use --no-rl-scheduler for all sources)",
+    )
+    parser.add_argument(
+        "--record-scenario", default="", metavar="PATH",
+        help="Save sanitized per-source results and timings for paired replay evaluation",
+    )
     args = parser.parse_args()
     query = " ".join(args.query) or DEFAULT_QUERY
     print(f"Query: {query} | Country: {args.country} | City: {args.city or 'Any'}")
@@ -35,6 +43,8 @@ def main() -> None:
     result = Coordinator(log=print).run(
         query, args.country, args.city, args.max_age, args.education,
         args.minimum_salary, use_gemma_summaries=args.gemma_summaries,
+        use_rl_scheduler=args.rl_scheduler,
+        record_scenario_path=args.record_scenario or None,
     )
     print("=" * 70)
     print(result["report"])

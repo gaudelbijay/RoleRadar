@@ -128,7 +128,21 @@ python -m pip install -r requirements-dev.txt
 ./run.sh test
 ```
 
-Current verified result: **59 tests passed**. Tests mock external services and do not require live job sites, GitHub, portfolio pages, Ollama, or model downloads.
+Current verified result: **74 tests passed**. Tests mock external services and do not require live job sites, GitHub, portfolio pages, Ollama, or model downloads.
+
+### Adaptive source scheduling
+
+The safe RL scheduler is enabled by default in both dashboards and the CLI:
+
+```bash
+./run.sh cli --country "United States" "robotics engineer"
+```
+
+It can stop launching additional source agents after an initial wave produces
+enough verified jobs. Uncheck it in a dashboard or pass `--no-rl-scheduler` to
+run every configured source. See the
+[adaptive scheduler documentation](docs/rl-scheduler.md) for safety limits,
+configuration, traces, and offline Q-learning.
 
 ### Main controls
 
@@ -142,6 +156,7 @@ Current verified result: **59 tests passed**. Tests mock external services and d
 | Minimum salary | Defaults to 100,000 in the listing currency; zero includes undisclosed salaries |
 | CV | Optional PDF, DOCX, TXT, or Markdown input for resume-aware ordering |
 | Gemma summaries | Optional local, evidence-validated presentation enhancement |
+| RL scheduler | Default adaptive source-agent launching with hard safety limits |
 
 [Back to the two tabs](#job-search) · [Open the complete technical report](technical_report.md)
 

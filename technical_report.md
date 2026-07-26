@@ -31,6 +31,103 @@ Bounded parallel source agents retrieve listings from Remotive, Jobicy, Arbeitno
 
 Normalization includes HTML cleanup, date handling, salary normalization, canonical identifiers, URL validation, and cross-source deduplication. The original source remains authoritative.
 
+A constrained RL scheduler runs source agents in bounded waves by default and
+stop launching additional sources once verified yield is sufficient. Its action
+space cannot modify job eligibility or ranking, and an untrained policy uses a
+deterministic cold-start controller. Runtime decisions and source timings are
+recorded in the local audit. See the [scheduler design](docs/rl-scheduler.md).
+
+#### Adaptive scheduler performance analysis
+
+The scheduler benchmark uses deterministic local source functions so network
+rate limits, changing listings, and job-board availability do not distort the
+orchestration measurement. Five sources have fixed 30–80 ms response delays.
+The all-source baseline starts all five concurrently; the adaptive scheduler
+starts two, evaluates verified yield at the wave boundary, and launches later
+sources only when necessary. Each scenario was run 10 times.
+
+| Scenario and mode | p50 latency | p95 latency | Mean source calls | Mean jobs returned | Mean agents skipped |
+|---|---:|---:|---:|---:|---:|
+| Early yield sufficient · all sources | 0.0853 s | 0.0863 s | 5 | 24 | 0 |
+| Early yield sufficient · RL scheduler | **0.0457 s** | **0.0458 s** | **2** | 15 | **3** |
+| Early yield insufficient · all sources | **0.0859 s** | **0.0863 s** | 5 | 15 | 0 |
+| Early yield insufficient · RL scheduler | 0.1940 s | 0.1963 s | 5 | 15 | 0 |
+
+When the initial wave reached the 15-job target, adaptive scheduling reduced
+p50 latency by **46.42%** and source calls by **60%**, while returning the full
+configured target. When the initial sources returned no eligible jobs, the
+scheduler still eventually calls every source (fixed source ordering cannot
+avoid that for a genuinely sparse query) and p50 latency increased by
+**125.84%**.
+
+That penalty used to be **190.8%**. The scheduler originally launched every
+expansion source one at a time — a full stop-and-decide cycle between each —
+so a 5-source sparse query paid for 5 sequential round trips. The runner now
+fills the configured parallel ceiling (`JOBSEARCH_RL_MAX_PARALLEL`, default 2)
+on every expansion wave instead of adding one source at a time, so the same
+5-source case now pays for 3 waves (2 + 2 + 1) instead of 5. The major-site
+adapter — the broadest-coverage source for specialized roles — is also placed
+into the initial wave instead of launching last, so it is no longer the final,
+most expensive call in a sparse expansion. Remaining sparse-query cost is
+structural: a query with no early yield must eventually try every configured
+source, and full parallel dispatch remains available by disabling the
+scheduler for latency-sensitive sparse queries. The next optimization is to
+learn source ordering and expected yield from historical per-query traces so
+low-value sources can be skipped instead of merely reordered; the
+[paired replay evaluator](docs/rl-scheduler.md#paired-recording-and-replay)
+now exists specifically to validate a change like that against recorded
+traffic, with an explicit promotion gate, before it becomes the default.
+
+The recorded result is stored in
+[`benchmarks/rl_scheduler_v1_results.json`](benchmarks/rl_scheduler_v1_results.json)
+and can be reproduced with:
+
+```bash
+PYTHONPATH=. .venv/bin/python benchmarks/benchmark_rl_scheduler.py \
+  --trials 10 --output benchmarks/rl_scheduler_v1_results.json
+```
+
+#### Real paired replay
+
+The exact query `computer vision robotics research engineer` was captured once
+with all five live sources using United States, PhD, a 10-day maximum age, and a
+100,000 minimum salary. Both dispatch policies were then evaluated against the
+identical frozen source batches and recorded source timings.
+
+| Metric | Full parallel | Default adaptive | Change |
+|---|---:|---:|---:|
+| Modeled latency | 96.4108 s | 96.4108 s | 0.0% |
+| Source calls | 5 | **2** | **−60.0%** |
+| Fetched listings | 302 | **164** | **−45.7%** |
+| Verified jobs | 12 | 12 | 0.0% |
+| Unique companies | 10 | 10 | 0.0% |
+| Ranked job IDs | 12 | 12 | Identical |
+
+The adaptive controller preserved every final result in this scenario while
+avoiding three low-value source calls. It did not improve latency because the
+major-site adapter was the slowest source and was required by both policies.
+This is evidence of call reduction and result preservation for one recorded
+query—not proof that a trained RL policy improves general performance.
+
+The promotion gate remains **failed** because no independent relevance labels
+or trained Q-policy are available, latency did not improve, and one scenario is
+insufficient for a default-policy decision. The committed aggregate is stored
+in [`benchmarks/rl_live_replay_v1_summary.json`](benchmarks/rl_live_replay_v1_summary.json).
+Raw replay files stay local and are ignored by Git because they contain copied
+public job descriptions.
+
+Record and compare another scenario with:
+
+```bash
+./run.sh cli --country "United States" --no-rl-scheduler \
+  --record-scenario benchmarks/replays/scenario.json "QUERY"
+
+PYTHONPATH=. .venv/bin/python -m rl_scheduler.evaluate \
+  benchmarks/replays/scenario.json \
+  --label-template benchmarks/replays/labels.json \
+  --output benchmarks/replays/evaluation.json
+```
+
 ### 4. Constraint-preserving filtering
 
 The inexpensive mandatory gates run before embeddings and reranking:
@@ -160,7 +257,7 @@ Privacy boundaries include:
 
 ### 14. Testing and continuous integration
 
-The current offline suite contains **59 passing tests** covering filtering, internship classification, salary behavior, BM25, semantic scoring, RRF, CrossEncoder limits, ranking metrics, Gemma evidence validation, JSON parsing, documentation links, resume behavior, and fallbacks.
+The current offline suite contains **74 passing tests** covering filtering, internship classification, salary behavior, BM25, semantic scoring, RRF, CrossEncoder limits, ranking metrics, Gemma evidence validation, RL scheduling, replay evaluation, privacy filtering, promotion gates, Q-learning, JSON parsing, documentation links, resume behavior, and fallbacks.
 
 GitHub Actions runs on pushes and pull requests with read-only repository permissions. CI:
 

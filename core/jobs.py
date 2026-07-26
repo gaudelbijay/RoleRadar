@@ -5,6 +5,7 @@ import html
 import json
 import os
 import re
+import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timedelta, timezone
 from urllib import error, parse, request
@@ -16,6 +17,10 @@ from core.cross_encoder_ranker import (
 from core.resume_intelligence import score_job_fit
 from core.rrf_ranker import reciprocal_rank_fusion
 from core.semantic_ranker import score_jobs as semantic_score_jobs
+from rl_scheduler import (
+    QLearningPolicy, SchedulerConfig, run_scheduled_sources,
+)
+from rl_scheduler.replay import build_scenario, save_scenario
 from core.skill_taxonomy import DOMAIN_ALIASES as BROAD_DOMAIN_CONCEPTS
 
 UA = "jobSearch/1.0 local dashboard"
@@ -703,7 +708,8 @@ def rank(jobs, query, limit=30, country="", city="", max_age_days=MAX_AGE_DAYS,
 
 def search_jobs(query, log=print, max_results=30, country="", city="",
                 max_age_days=MAX_AGE_DAYS, education="PhD", resume_profile=None,
-                search_type="Jobs", minimum_salary=100_000, ranking_mode=None):
+                search_type="Jobs", minimum_salary=100_000, ranking_mode=None,
+                source_scheduler=None, record_scenario_path=None):
     ranking_mode = str(ranking_mode or os.environ.get(
         "JOBSEARCH_RANKER", "bm25"
     )).strip().lower()
@@ -743,27 +749,98 @@ def search_jobs(query, log=print, max_results=30, country="", city="",
                    ("Arbeitnow", arbeitnow), ("Remote OK", remoteok),
                    ("LinkedIn / Indeed / Google",
                     lambda q: top_job_sites(q, country, city, max_age_days))]
-    jobs, errors = [], []
-    with ThreadPoolExecutor(max_workers=len(sources)) as pool:
-        futures = {}
-        for name, fetcher in sources:
-            log(f"[source agent: {name}] searching live listings...")
-            futures[pool.submit(fetcher, source_query)] = name
-        for future in as_completed(futures):
-            name = futures[future]
-            try:
-                batch = future.result()
-                jobs.extend(batch)
-                log(f"[source agent: {name}] collected {len(batch)} listings")
-            except Exception as exc:
-                errors.append(f"{name}: {exc}")
-                log(f"[source agent: {name}] failed: {exc}")
+    scheduler_mode = str(source_scheduler or os.environ.get(
+        "JOBSEARCH_SOURCE_SCHEDULER", "rl"
+    )).strip().lower()
+    if scheduler_mode not in {"all", "rl"}:
+        raise ValueError("Source scheduler must be all or rl.")
+    jobs, errors, scheduler_trace, source_records = [], [], [], []
+    scheduler_summary = {
+        "mode": scheduler_mode, "launched_agents": len(sources),
+        "skipped_agents": 0, "elapsed_seconds": None,
+    }
+    if scheduler_mode == "rl":
+        def eligible_count(candidates):
+            return len(rank(
+                [item.copy() for item in candidates], query, max_results,
+                country, city, max_age_days, education,
+                resume_profile=resume_profile, search_type=search_type,
+                minimum_salary=minimum_salary, ranking_mode="deterministic",
+            ))
+
+        policy_path = os.environ.get("JOBSEARCH_RL_POLICY_PATH", "").strip()
+        try:
+            scheduler_policy = QLearningPolicy.load(policy_path)
+        except (OSError, ValueError, json.JSONDecodeError) as exc:
+            log(f"[RL scheduler] policy unavailable; using safe fallback: {type(exc).__name__}")
+            scheduler_policy = QLearningPolicy()
+        scheduler_config = SchedulerConfig(
+            initial_agents=int(os.environ.get("JOBSEARCH_RL_INITIAL_AGENTS", "2")),
+            max_parallel_agents=int(os.environ.get("JOBSEARCH_RL_MAX_PARALLEL", "2")),
+            minimum_results=int(os.environ.get("JOBSEARCH_RL_MIN_RESULTS", "5")),
+            target_results=int(os.environ.get("JOBSEARCH_RL_TARGET_RESULTS", "15")),
+            soft_deadline_seconds=float(os.environ.get("JOBSEARCH_RL_SOFT_DEADLINE", "6")),
+            hard_deadline_seconds=float(os.environ.get("JOBSEARCH_RL_HARD_DEADLINE", "15")),
+        )
+        # Major sites have the broadest specialized-role coverage and must be
+        # present in the initial adaptive wave instead of being the last source.
+        scheduled_sources = (
+            [sources[-1], *sources[:-1]] if search_type == "Jobs" else sources
+        )
+        scheduled = run_scheduled_sources(
+            scheduled_sources, source_query, eligible_count, policy=scheduler_policy,
+            config=scheduler_config, log=log,
+        )
+        jobs, errors, scheduler_trace = scheduled.jobs, scheduled.errors, scheduled.trace
+        source_records = scheduled.source_records
+        scheduler_summary = {
+            "mode": "rl", "launched_agents": scheduled.launched_agents,
+            "skipped_agents": scheduled.skipped_agents,
+            "elapsed_seconds": round(scheduled.elapsed_seconds, 4),
+            "policy_loaded": bool(policy_path and scheduler_policy.q_values),
+        }
+    else:
+        with ThreadPoolExecutor(max_workers=len(sources)) as pool:
+            futures = {}
+            for name, fetcher in sources:
+                log(f"[source agent: {name}] searching live listings...")
+                futures[pool.submit(fetcher, source_query)] = (name, time.monotonic())
+            for future in as_completed(futures):
+                name, source_started = futures[future]
+                try:
+                    batch = future.result()
+                    jobs.extend(batch)
+                    log(f"[source agent: {name}] collected {len(batch)} listings")
+                except Exception as exc:
+                    errors.append(f"{name}: {exc}")
+                    log(f"[source agent: {name}] failed: {exc}")
+                    batch = []
+                source_records.append({
+                    "name": name,
+                    "elapsed_seconds": round(time.monotonic() - source_started, 4),
+                    "jobs": batch,
+                    "error": errors[-1] if not batch and errors and errors[-1].startswith(f"{name}:") else "",
+                })
     location = ", ".join(part for part in [city.strip(), country.strip()] if part)
     ranked, diagnostics, near_matches = rank(
         jobs, query, max_results, country, city, max_age_days, education,
         include_diagnostics=True, resume_profile=resume_profile, search_type=search_type,
         minimum_salary=minimum_salary, ranking_mode=ranking_mode,
     )
+    recording_path = str(record_scenario_path or os.environ.get(
+        "JOBSEARCH_RECORD_SCENARIO_PATH", ""
+    )).strip()
+    if recording_path:
+        settings = {
+            "country": country.strip(), "city": city.strip(),
+            "max_age_days": max_age_days, "education": education,
+            "search_type": search_type, "minimum_salary": int(minimum_salary),
+            "max_results": max_results, "ranking_mode": ranking_mode,
+        }
+        save_scenario(recording_path, build_scenario(
+            query, settings, source_records,
+        ))
+        log(f"[replay] sanitized source scenario saved -> {recording_path}")
     return {"jobs": ranked, "diagnostics": diagnostics,
             "near_matches": near_matches, "source_errors": errors,
             "search_links": major_search_links(source_query, location),
@@ -772,6 +849,9 @@ def search_jobs(query, log=print, max_results=30, country="", city="",
             "ranking_mode": diagnostics["ranking_mode_active"],
             "max_age_days": max_age_days, "minimum_salary": int(minimum_salary),
             "fetched_count": len(jobs),
+            "source_scheduler": scheduler_summary,
+            "scheduler_trace": scheduler_trace,
+            "recording_path": recording_path or None,
             "resume_personalized": bool(resume_profile),
             "resume_summary": ({
                 "summary": resume_profile.get("summary", ""),
@@ -920,5 +1000,3 @@ def build_report(query, result):
     if result["source_errors"]:
         lines += ["", "## Source errors", ""] + [f"- {e}" for e in result["source_errors"]]
     return "\n".join(lines)
-    if education not in EDUCATION_LEVELS:
-        raise ValueError(f"Education must be one of: {', '.join(EDUCATION_LEVELS)}")
