@@ -56,6 +56,5 @@ matched skills can explain personalized order, while raw CV text, public-page
 text, and applicant contact fields are excluded. Reports live under `reports/`
 and are ignored by Git.
 
-The legacy general-research agents remain separate from live retrieval. The
-live path uses Ollama only when the user explicitly enables evidence-validated
+The live path uses Ollama only when the user explicitly enables evidence-validated
 Gemma summaries.

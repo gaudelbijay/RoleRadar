@@ -1,6 +1,7 @@
 """Parallel, evidence-based resume and public-link intelligence."""
 from __future__ import annotations
 
+import contextlib
 import hashlib
 import html
 import ipaddress
@@ -8,6 +9,7 @@ import json
 import os
 import re
 import socket
+import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from html.parser import HTMLParser
 from urllib import error, parse, request
@@ -153,7 +155,67 @@ def _github_agent(url: str) -> dict:
                 "summary": f"GitHub data unavailable: {type(exc).__name__}"}
 
 
-def _validate_public_url(url: str) -> None:
+def _bare_host(netloc: str) -> str:
+    """Strip a trailing :port from a URL netloc while preserving original case.
+
+    Must match exactly what http.client hands to socket.getaddrinfo when it
+    actually connects, so the DNS pin below lands on the right key.
+    """
+    if netloc.startswith("["):
+        end = netloc.find("]")
+        return netloc[:end + 1] if end != -1 else netloc
+    return netloc.rsplit(":", 1)[0] if ":" in netloc else netloc
+
+
+_real_getaddrinfo = socket.getaddrinfo
+_dns_pins = threading.local()
+
+
+def _pin_stack() -> list[dict]:
+    stack = getattr(_dns_pins, "stack", None)
+    if stack is None:
+        stack = []
+        _dns_pins.stack = stack
+    return stack
+
+
+def _pinned_getaddrinfo(host, port, *args, **kwargs):
+    for pins in reversed(_pin_stack()):
+        resolved_ip = pins.get((host, port))
+        if resolved_ip is not None:
+            return _real_getaddrinfo(resolved_ip, port, *args, **kwargs)
+    return _real_getaddrinfo(host, port, *args, **kwargs)
+
+
+# Every socket connection in this process resolves through this wrapper so a
+# pin set below is actually honored; hosts with no active pin behave exactly
+# as before.
+socket.getaddrinfo = _pinned_getaddrinfo
+
+
+@contextlib.contextmanager
+def _pinned_dns_scope(host: str, port: int, resolved_ip: str | None):
+    """Bind host:port to one already-validated address for this thread only.
+
+    `_validate_public_url` resolves and checks a hostname once; without this,
+    the connection made moments later re-resolves the same hostname on its
+    own, and a DNS-rebinding attacker could serve a public address for the
+    check and a private one for the real connection. Pinning closes that
+    window. Scoped to a stack so redirects (see `_SafeRedirect`) can add
+    further pins that are all released together when the fetch finishes.
+    """
+    stack = _pin_stack()
+    stack.append({})
+    if resolved_ip:
+        stack[-1][(host, port)] = resolved_ip
+    try:
+        yield
+    finally:
+        stack.pop()
+
+
+def _validate_public_url(url: str) -> str | None:
+    """Validate a public URL and return the single IP it should be pinned to."""
     parts = parse.urlsplit(url)
     if parts.scheme not in {"http", "https"} or not parts.hostname or parts.username or parts.password:
         raise ValueError("Unsupported URL")
@@ -162,16 +224,27 @@ def _validate_public_url(url: str) -> None:
     hostname = parts.hostname.rstrip(".").lower()
     if hostname in {"localhost"} or hostname.endswith((".local", ".internal", ".localhost")):
         raise ValueError("Private hosts are blocked")
-    addresses = socket.getaddrinfo(hostname, parts.port or (443 if parts.scheme == "https" else 80), type=socket.SOCK_STREAM)
+    port = parts.port or (443 if parts.scheme == "https" else 80)
+    # Resolve through the real resolver so validation isn't fooled by a pin
+    # left over from an unrelated in-flight fetch on this thread.
+    addresses = _real_getaddrinfo(parts.hostname, port, type=socket.SOCK_STREAM)
+    resolved_ip = None
     for item in addresses:
         ip = ipaddress.ip_address(item[4][0])
         if not ip.is_global:
             raise ValueError("Private or non-global network addresses are blocked")
+        if resolved_ip is None:
+            resolved_ip = item[4][0]
+    return resolved_ip
 
 
 class _SafeRedirect(request.HTTPRedirectHandler):
     def redirect_request(self, req, fp, code, msg, headers, newurl):
-        _validate_public_url(newurl)
+        resolved_ip = _validate_public_url(newurl)
+        parts = parse.urlsplit(newurl)
+        port = parts.port or (443 if parts.scheme == "https" else 80)
+        if resolved_ip and _pin_stack():
+            _pin_stack()[-1][(_bare_host(parts.netloc), port)] = resolved_ip
         return super().redirect_request(req, fp, code, msg, headers, newurl)
 
 
@@ -192,17 +265,21 @@ class _TextHTMLParser(HTMLParser):
 
 def _portfolio_agent(url: str) -> dict:
     try:
-        _validate_public_url(url)
-        opener = request.build_opener(_SafeRedirect())
-        req = request.Request(url, headers={"User-Agent": USER_AGENT, "Accept": "text/html,text/plain"})
-        with opener.open(req, timeout=8) as response:
-            content_type = response.headers.get_content_type()
-            if content_type not in {"text/html", "text/plain"}:
-                raise ValueError("Only public HTML or text pages are analyzed")
-            data = response.read(MAX_PAGE_BYTES + 1)
-            if len(data) > MAX_PAGE_BYTES:
-                raise ValueError("Page is too large")
-            decoded = data.decode(response.headers.get_content_charset() or "utf-8", errors="replace")
+        resolved_ip = _validate_public_url(url)
+        parts = parse.urlsplit(url)
+        host = _bare_host(parts.netloc)
+        port = parts.port or (443 if parts.scheme == "https" else 80)
+        with _pinned_dns_scope(host, port, resolved_ip):
+            opener = request.build_opener(_SafeRedirect())
+            req = request.Request(url, headers={"User-Agent": USER_AGENT, "Accept": "text/html,text/plain"})
+            with opener.open(req, timeout=8) as response:
+                content_type = response.headers.get_content_type()
+                if content_type not in {"text/html", "text/plain"}:
+                    raise ValueError("Only public HTML or text pages are analyzed")
+                data = response.read(MAX_PAGE_BYTES + 1)
+                if len(data) > MAX_PAGE_BYTES:
+                    raise ValueError("Page is too large")
+                decoded = data.decode(response.headers.get_content_charset() or "utf-8", errors="replace")
         if content_type == "text/html":
             parser = _TextHTMLParser()
             parser.feed(decoded)
