@@ -2,6 +2,32 @@
 
 A privacy-conscious, resume-personalized job discovery and application-preparation system. It retrieves recent public listings, enforces user constraints, ranks eligible jobs with classical and neural information retrieval, produces evidence-validated summaries, and keeps final application submission under human control.
 
+## Screenshots
+
+### Main search page
+
+The Gradio landing page combines optional applicant details with the job query, location, posting-age, education, salary, summary, and source-scheduling controls.
+
+<p align="center">
+  <a href="assets/job-search-main-page.png">
+    <img src="assets/job-search-main-page.png" width="100%" alt="Gradio Job Search landing page before running a search">
+  </a>
+</p>
+
+<p align="center"><em>Main Gradio interface before a search. Click the screenshot to open it at full resolution.</em></p>
+
+### Gradio job results
+
+The primary dashboard presents verified live openings as ranked, evidence-rich job cards. This live example searched for **AI robotics research scientist** with a 30-day posting window and returned 20 matches from public job sources.
+
+<p align="center">
+  <a href="assets/job-search-results.png">
+    <img src="assets/job-search-results.png" width="100%" alt="Gradio dashboard showing ranked AI robotics research scientist job results">
+  </a>
+</p>
+
+<p align="center"><em>Ranked Gradio results with source, posting age, salary, education evidence, role overview, experience, requirements, and original-listing links. Click the screenshot to open it at full resolution.</em></p>
+
 <p align="center">
   <a href="#tab-1--clone--run"><strong>▶ Tab 1 · Clone & Run</strong></a>
   &nbsp;&nbsp;|&nbsp;&nbsp;
