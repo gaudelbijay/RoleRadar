@@ -13,7 +13,7 @@ No paid API key or Ollama model is required for search, filtering, or ranking.
 ## Install
 
 ```bash
-cd /path/to/jobSearch
+cd /path/to/RoleRadar
 python3 -m venv .venv
 source .venv/bin/activate
 python -m pip install -r requirements.txt

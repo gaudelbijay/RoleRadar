@@ -1,6 +1,6 @@
-# Job Search documentation
+# RoleRadar documentation
 
-Job Search is a live job discovery and review-first application-preparation
+RoleRadar is a live job discovery and review-first application-preparation
 tool with separate Gradio, Streamlit, and command-line interfaces.
 
 ## Launch immediately

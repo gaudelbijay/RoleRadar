@@ -1,10 +1,10 @@
-# Job Search — Technical Report
+# RoleRadar — Technical Report
 
 [← Clone and run the project](README.md#tab-1--clone--run) · [Documentation index](docs/document.md)
 
 ### 1. Project objective
 
-Job Search is an end-to-end applied information-retrieval system. It addresses five practical problems:
+RoleRadar is an end-to-end applied information-retrieval system. It addresses five practical problems:
 
 1. Aggregate recent openings from inconsistent public sources.
 2. Prevent irrelevant, stale, wrong-country, wrong-search-type, and below-threshold listings from leaking into results.
@@ -16,7 +16,7 @@ The project is a substantial engineering and portfolio system. Its synthetic ben
 
 ### 2. System architecture
 
-![Job Search system architecture](assets/system-architecture.svg)
+![RoleRadar system architecture](assets/system-architecture.svg)
 
 The architecture keeps eligibility rules separate from relevance models. Live
 sources feed a normalized job schema, mandatory gates establish the eligible
@@ -327,4 +327,4 @@ For focused operational documentation, open the [documentation index](docs/docum
 
 ## Responsible-use notice
 
-Job Search assists discovery and preparation. Employers and original job pages remain authoritative. Users must verify every generated statement, eligibility answer, salary value, and application field before submission. The software must not be used to collect private contact information, bypass access controls, misrepresent qualifications, or submit applications without informed human review.
+RoleRadar assists discovery and preparation. Employers and original job pages remain authoritative. Users must verify every generated statement, eligibility answer, salary value, and application field before submission. The software must not be used to collect private contact information, bypass access controls, misrepresent qualifications, or submit applications without informed human review.

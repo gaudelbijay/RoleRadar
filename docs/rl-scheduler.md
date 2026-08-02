@@ -6,7 +6,7 @@ For the full mathematical derivation—including the MDP and semi-MDP model, sta
 
 ## Executive summary
 
-Job Search uses an adaptive controller to decide whether another wave of job-source agents should run or whether the current verified result set is sufficient.
+RoleRadar uses an adaptive controller to decide whether another wave of job-source agents should run or whether the current verified result set is sufficient.
 
 The implementation is **RL-capable**, but the repository does not ship a trained policy. This distinction is essential:
 

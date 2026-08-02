@@ -1,4 +1,4 @@
-# Job Search
+# RoleRadar
 
 A privacy-conscious, resume-personalized job discovery and application-preparation system. It retrieves recent public listings, enforces user constraints, ranks eligible jobs with classical and neural information retrieval, produces evidence-validated summaries, and keeps final application submission under human control.
 
@@ -10,7 +10,7 @@ The Gradio landing page combines optional applicant details with the job query, 
 
 <p align="center">
   <a href="assets/job-search-main-page.png">
-    <img src="assets/job-search-main-page.png" width="100%" alt="Gradio Job Search landing page before running a search">
+    <img src="assets/job-search-main-page.png" width="100%" alt="Gradio RoleRadar landing page before running a search">
   </a>
 </p>
 
@@ -53,8 +53,8 @@ No paid LLM API key is required. BM25 is installed by default. Semantic retrieva
 ### 1. Clone the repository
 
 ```bash
-git clone https://github.com/gaudelbijay/jobSearch.git
-cd jobSearch
+git clone https://github.com/gaudelbijay/RoleRadar.git
+cd RoleRadar
 ```
 
 ### 2. Create the environment
@@ -184,12 +184,12 @@ configuration, traces, and offline Q-learning.
 | Gemma summaries | Optional local, evidence-validated presentation enhancement |
 | RL scheduler | Default adaptive source-agent launching with hard safety limits |
 
-[Back to the two tabs](#job-search) · [Open the complete technical report](technical_report.md)
+[Back to the two tabs](#roleradar) · [Open the complete technical report](technical_report.md)
 
 ---
 
 ## Responsible-use notice
 
-Job Search assists discovery and preparation. Employers and original job pages remain authoritative. Users must verify every generated statement, eligibility answer, salary value, and application field before submission. The software must not be used to collect private contact information, bypass access controls, misrepresent qualifications, or submit applications without informed human review.
+RoleRadar assists discovery and preparation. Employers and original job pages remain authoritative. Users must verify every generated statement, eligibility answer, salary value, and application field before submission. The software must not be used to collect private contact information, bypass access controls, misrepresent qualifications, or submit applications without informed human review.
 
 ---

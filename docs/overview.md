@@ -2,7 +2,7 @@
 
 [Documentation index](document.md)
 
-Job Search is a live job aggregation, ranking, reporting, and application-
+RoleRadar is a live job aggregation, ranking, reporting, and application-
 preparation dashboard. Users can explicitly launch either Gradio or Streamlit:
 
 ```bash

@@ -1,6 +1,6 @@
-# Job Search technical design
+# RoleRadar technical design
 
-Job Search combines live aggregation, evidence-gated ranking, resume
+RoleRadar combines live aggregation, evidence-gated ranking, resume
 intelligence, reporting, and review-first application preparation. Gradio and
 Streamlit are explicit launch modes:
 
